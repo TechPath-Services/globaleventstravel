@@ -20,6 +20,7 @@ import { tagService } from "@/services/tag.service";
 import { blogService } from "@/services/blog.service";
 import type { BlogCategory, BlogTag, BlogAuthor, BlogPost } from "@/types/api";
 import { cn } from "@/lib/utils";
+import { isLikelyMarkdown } from "@/lib/markdown";
 
 interface BlogPostFormProps {
   post?: BlogPost;
@@ -28,8 +29,12 @@ interface BlogPostFormProps {
 }
 
 export function BlogPostForm({ post, onSubmit, isLoading }: BlogPostFormProps) {
+  const initialEditorType =
+    post?.contentType === "markdown" || isLikelyMarkdown(post?.content || "")
+      ? "markdown"
+      : "html";
   const [editorType, setEditorType] = useState<"html" | "markdown">(
-    post?.contentType || "html"
+    initialEditorType
   );
   const [categories, setCategories] = useState<
     Array<BlogCategory & { level: number; fullPath: string }>
@@ -54,7 +59,7 @@ export function BlogPostForm({ post, onSubmit, isLoading }: BlogPostFormProps) {
       slug: post?.slug || "",
       excerpt: post?.excerpt || "",
       content: post?.content || "",
-      content_type: post?.contentType || "html",
+      content_type: initialEditorType,
       status: post?.status || "draft",
       category_id: post?.categoryId || undefined,
       featured: post?.featured || false,

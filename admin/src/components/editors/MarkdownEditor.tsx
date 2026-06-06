@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { renderMarkdown } from "@/lib/markdown";
 import {
   Bold,
   Italic,
@@ -139,50 +140,6 @@ export function MarkdownEditor({
       title: "Image",
     },
   ];
-
-  // Simple markdown to HTML converter for preview
-  const renderMarkdown = (md: string): string => {
-    let html = md
-      // Escape HTML
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      // Headers
-      .replace(/^### (.*$)/gim, "<h3>$1</h3>")
-      .replace(/^## (.*$)/gim, "<h2>$1</h2>")
-      .replace(/^# (.*$)/gim, "<h1>$1</h1>")
-      // Bold and italic
-      .replace(/\*\*\*(.*?)\*\*\*/gim, "<strong><em>$1</em></strong>")
-      .replace(/\*\*(.*?)\*\*/gim, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/gim, "<em>$1</em>")
-      // Code
-      .replace(/```([\s\S]*?)```/gim, "<pre><code>$1</code></pre>")
-      .replace(/`(.*?)`/gim, "<code>$1</code>")
-      // Links and images
-      .replace(
-        /!\[(.*?)\]\((.*?)\)/gim,
-        '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-2" />'
-      )
-      .replace(
-        /\[(.*?)\]\((.*?)\)/gim,
-        '<a href="$2" class="text-blue-600 underline">$1</a>'
-      )
-      // Blockquotes
-      .replace(
-        /^> (.*$)/gim,
-        '<blockquote class="border-l-4 border-gray-300 pl-4 italic">$1</blockquote>'
-      )
-      // Lists
-      .replace(/^\d+\. (.*$)/gim, "<li>$1</li>")
-      .replace(/^- (.*$)/gim, "<li>$1</li>")
-      // Horizontal rule
-      .replace(/^---$/gim, "<hr />")
-      // Paragraphs
-      .replace(/\n\n/gim, "</p><p>")
-      .replace(/\n/gim, "<br />");
-
-    return `<p>${html}</p>`;
-  };
 
   const ToolbarButton = ({
     onClick,
