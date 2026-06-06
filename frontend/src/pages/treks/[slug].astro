@@ -8,6 +8,7 @@ import type { Trek, TrekBatch } from '@/lib/types';
 import TrekLeadForm from '@/components/forms/TrekLeadForm';
 import MobileStickyForm from '@/components/forms/MobileStickyForm';
 import TrekCard from '@/components/trek/TrekCard.astro';
+import { renderContent } from '@/lib/markdown';
 
 // Enable SSR for this page - fetch trek data dynamically at request time
 export const prerender = false;
@@ -326,7 +327,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
           <!-- Description -->
           <div class="bg-white rounded-xl border border-neutral-200 p-6">
             <h2 class="text-2xl font-bold text-neutral-900 mb-4">About This Trek</h2>
-            <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={trek.description}></div>
+            <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={renderContent(trek.description).html}></div>
             
             <!-- Best Season -->
             <div class="mt-6">
@@ -542,7 +543,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                     {day.day}
                   </div>
                   <h3 class="text-lg font-semibold text-neutral-900 mb-2 break-words">{day.title}</h3>
-                  <div class="text-neutral-600 mb-3 prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_table]:w-full [&_pre]:overflow-x-auto" set:html={day.description}></div>
+                  <div class="text-neutral-600 mb-3 prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_table]:w-full [&_pre]:overflow-x-auto" set:html={renderContent(day.description).html}></div>
                   <div class="flex flex-wrap gap-4 text-sm text-neutral-500">
                     <span class="flex items-center gap-1">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -637,13 +638,13 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                 {trek.fitness_level && (
                   <div class="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
                     <h4 class="text-lg font-semibold text-neutral-900 mb-2">Fitness Level Required</h4>
-                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={trek.fitness_level}></div>
+                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={renderContent(trek.fitness_level).html}></div>
                   </div>
                 )}
                 {trek.experience_required && (
                   <div class="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
                     <h4 class="text-lg font-semibold text-neutral-900 mb-2">Experience Required</h4>
-                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={trek.experience_required}></div>
+                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={renderContent(trek.experience_required).html}></div>
                   </div>
                 )}
               </div>
@@ -673,7 +674,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                       </svg>
                     </button>
                     <div class="faq-content hidden">
-                      <div class="px-5 py-4 text-neutral-600 bg-white prose prose-neutral max-w-none break-words [&_img]:max-w-full" set:html={faq.answer}></div>
+                      <div class="px-5 py-4 text-neutral-600 bg-white prose prose-neutral max-w-none break-words [&_img]:max-w-full" set:html={renderContent(faq.answer).html}></div>
                     </div>
                   </div>
                 ))}

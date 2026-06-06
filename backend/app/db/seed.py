@@ -949,6 +949,7 @@ def seed_blog(db: Session):
             "slug": "best-summer-treks-india-2025",
             "excerpt": "Discover the most breathtaking summer treks in India. From the Valley of Flowers to Hampta Pass, find your perfect adventure.",
             "content": "# 13 Best Summer Treks in India for 2025\n\nSummer in India is the perfect time to escape to the mountains...",
+            "content_type": "markdown",
             "author_id": author_map["Rajesh Kumar"],
             "publish_date": "2024-12-20",
             "featured_image": "/images/blog/summer-treks.jpg",
@@ -966,6 +967,7 @@ def seed_blog(db: Session):
             "slug": "kasol-kheerganga-trek-beginners-guide",
             "excerpt": "Everything you need to know about the famous Kasol to Kheerganga trek. Perfect for first-time trekkers.",
             "content": "# Complete Guide: Kasol to Kheerganga Trek\n\nThe Kasol to Kheerganga trek is one of the most popular beginner-friendly treks...",
+            "content_type": "markdown",
             "author_id": author_map["Deepa Negi"],
             "publish_date": "2024-12-15",
             "featured_image": "/images/blog/kheerganga.jpg",
@@ -983,6 +985,7 @@ def seed_blog(db: Session):
             "slug": "essential-trekking-gear-himalayan-treks",
             "excerpt": "A comprehensive packing guide for Himalayan treks. Learn what gear is essential.",
             "content": "# Essential Trekking Gear\n\nPacking for a Himalayan trek can be overwhelming...",
+            "content_type": "markdown",
             "author_id": author_map["Vikram Singh"],
             "publish_date": "2024-12-10",
             "featured_image": "/images/blog/trekking-gear.jpg",
@@ -1018,6 +1021,8 @@ def seed_blog(db: Session):
             if existing.status != "published":
                 existing.status = "published"
                 existing.published_at = pd.get("published_at")
+            if pd.get("content_type") == "markdown" and existing.content_type != "markdown":
+                existing.content_type = "markdown"
     db.commit()
     print(f"[OK] Seeded {len(posts_data)} blog posts with categories and tags")
 

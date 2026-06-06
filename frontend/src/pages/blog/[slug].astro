@@ -2,6 +2,7 @@
 import MainLayout from '@/layouts/MainLayout.astro';
 import BlogCard from '@/components/blog/BlogCard.astro';
 import { blogApi, getSiteSettings } from '@/lib/api';
+import { renderContent } from '@/lib/markdown';
 
 const { siteConfig } = await getSiteSettings();
 
@@ -44,14 +45,9 @@ const readTime = post.readTime || post.read_time || 5;
 const tags = post.tags || [];
 const content = post.content || '';
 
-// Generate table of contents: supports both markdown and HTML content
-const contentType = post.contentType || post.content_type || 'html';
-const headings: string[] =
-  contentType === 'markdown'
-    ? (content.match(/^##\s+(.+)$/gm)?.map((h: string) => h.replace(/^##\s+/, '')) ?? [])
-    : (content.match(/<h2[^>]*>([^<]+)<\/h2>/gi)?.map((h: string) =>
-        h.replace(/<\/?h2[^>]*>/gi, '').trim()
-      ) ?? []);
+const contentType: 'html' | 'markdown' =
+  (post.contentType || post.content_type) === 'markdown' ? 'markdown' : 'html';
+const renderedContent = renderContent(content, contentType);
 ---
 
 <MainLayout
@@ -127,16 +123,16 @@ const headings: string[] =
           <!-- Table of Contents (Desktop) -->
           <aside class="hidden lg:block lg:col-span-1">
             <div class="sticky top-24">
-              {headings.length > 0 && (
+              {renderedContent.headings.length > 0 && (
                 <div class="bg-neutral-50 rounded-xl p-6 mb-6">
                   <h3 class="font-bold text-secondary-600 mb-4">Table of Contents</h3>
                   <nav class="space-y-2">
-                    {headings.map((heading: string, index: number) => (
+                    {renderedContent.headings.map((heading) => (
                       <a
-                        href={`#section-${index}`}
+                        href={`#${heading.id}`}
                         class="block text-sm text-neutral-600 hover:text-primary-600 transition-colors py-1 border-l-2 border-neutral-200 hover:border-primary-500 pl-3"
                       >
-                        {heading}
+                        {heading.label}
                       </a>
                     ))}
                   </nav>
@@ -197,10 +193,7 @@ const headings: string[] =
             <div class="max-w-3xl">
               <!-- Article Body -->
               <div class="prose prose-lg max-w-none">
-                <Fragment set:html={content.replace(/^## (.+)$/gm, (_: string, heading: string) => {
-                  const index = headings.indexOf(heading);
-                  return `<h2 id="section-${index}">${heading}</h2>`;
-                })} />
+                <Fragment set:html={renderedContent.html} />
               </div>
 
               <!-- Tags -->
