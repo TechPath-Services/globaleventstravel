@@ -55,7 +55,7 @@ on:
 jobs:
   deploy-staging:
     name: Deploy to Staging
-    runs-on: [self-hosted, techpath]
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
 
     environment:
