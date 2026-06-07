@@ -58,7 +58,7 @@ on:
 jobs:
   deploy-staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
 
     environment:
@@ -66,111 +66,41 @@ jobs:
       url: https://dev.globaleventstravels.com
 
     env:
-      DEPLOY_PATH: /home/glfdgdg-dev/htdocs/dev.globaleventstravels.com
-      SERVICE_NAME: globaleventstravels-staging-web
-      APP_PORT: 3005
+      DEPLOY_DIR: /home/techpath/Documents/globaleventstravels-frontend-staging
+      IMAGE: globaleventstravels-frontend-staging
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy files to Staging VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: "frontend/"
-          target: ${{ env.DEPLOY_PATH }}
-          strip_components: 1
-          rm: false
+      - name: Prepare Deployment Directory
+        run: mkdir -p "$DEPLOY_DIR"
 
-      - name: Setup and restart staging service
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            set -e
+      - name: Write .env for build (PUBLIC_* vars inlined at build time)
+        run: |
+          cat > frontend/.env <<'ENVEOF'
+          ${{ secrets.ENV_FILE_FRONTEND }}
+          ENVEOF
 
-            echo "=========================================="
-            echo "Global Events Travels STAGING Frontend Deployment"
-            echo "=========================================="
+      - name: Copy docker-compose
+        run: cp frontend/docker-compose.staging.yml "$DEPLOY_DIR/docker-compose.yml"
 
-            DEPLOY_DIR="${{ env.DEPLOY_PATH }}"
-            SERVICE_NAME="${{ env.SERVICE_NAME }}"
-            APP_PORT="${{ env.APP_PORT }}"
+      - name: Build Docker Image
+        run: docker build -t "$IMAGE:latest" frontend/
 
-            cd "$DEPLOY_DIR"
+      - name: Deploy with Docker Compose
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose up -d --force-recreate
 
-            # IMPORTANT: write env BEFORE build (Astro/Vite inlines PUBLIC_* vars at build time)
-            echo "Writing .env file (inlined at build time)..."
-            cat > .env << 'ENVEOF'
-            ${{ secrets.ENV_FILE_FRONTEND }}
-            ENVEOF
-            chmod 600 .env
-
-            echo "Cleaning previous build..."
-            rm -rf dist 2>/dev/null || true
-
-            echo "Installing dependencies (npm ci)..."
-            npm ci --no-audit --no-fund
-
-            echo "Building Astro site..."
-            npm run build
-
-            echo "Setting up systemd service..."
-            cat > /etc/systemd/system/${SERVICE_NAME}.service << SERVICEEOF
-            [Unit]
-            Description=Global Events Travels Staging Frontend Service
-            After=network.target
-
-            [Service]
-            Type=simple
-            User=root
-            WorkingDirectory=${DEPLOY_DIR}
-            Environment="NODE_ENV=production"
-            Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-            Environment="HOST=0.0.0.0"
-            Environment="PORT=${APP_PORT}"
-            EnvironmentFile=${DEPLOY_DIR}/.env
-            ExecStart=$(which node) dist/server/entry.mjs
-            Restart=always
-            RestartSec=10
-
-            [Install]
-            WantedBy=multi-user.target
-            SERVICEEOF
-
-            echo "Restarting service..."
-            systemctl daemon-reload
-            systemctl enable ${SERVICE_NAME}.service 2>/dev/null || true
-
-            PID=$(lsof -t -i:${APP_PORT} 2>/dev/null) || true
-            if [ -n "$PID" ]; then
-                kill -9 $PID 2>/dev/null || true
-                sleep 2
-            fi
-
-            systemctl restart ${SERVICE_NAME}.service
-            sleep 5
-
-            echo "Health check..."
-            if systemctl is-active --quiet ${SERVICE_NAME}.service; then
-                echo "Staging frontend service is running on port ${APP_PORT}!"
-            else
-                echo "Service failed!"
-                journalctl -u ${SERVICE_NAME}.service --no-pager -n 30
-                exit 1
-            fi
-
-            echo "=========================================="
-            echo "STAGING deployment complete!"
-            echo "   URL: https://dev.globaleventstravels.com"
-            echo "=========================================="
+      - name: Health check
+        run: |
+          sleep 5
+          docker inspect --format='{{.State.Status}}' globaleventstravels-frontend-staging | grep -q running
+          echo "=========================================="
+          echo "STAGING Frontend deployment complete!"
+          echo "   URL: https://dev.globaleventstravels.com"
+          echo "=========================================="
 
 # =============================================================================
 # PRODUCTION DEPLOYMENT

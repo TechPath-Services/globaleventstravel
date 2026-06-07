@@ -1,0 +1,11 @@
+services:
+  app:
+    image: globaleventstravels-admin-staging:latest
+    container_name: globaleventstravels-admin-staging
+    restart: unless-stopped
+    networks:
+      - techpath-web
+
+networks:
+  techpath-web:
+    external: true
