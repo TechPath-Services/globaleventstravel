@@ -55,7 +55,7 @@ on:
 jobs:
   deploy-staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, techpath]
     if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
 
     environment:
@@ -63,117 +63,45 @@ jobs:
       url: https://staging.api.globaleventstravels.com
 
     env:
-      DEPLOY_PATH: /home/globaleventstravels-staging-api/htdocs/staging.api.globaleventstravels.com
-      SERVICE_NAME: globaleventstravels-staging-api
-      APP_PORT: 8096
+      DEPLOY_DIR: /home/techpath/Documents/globaleventstravels-api-staging
+      IMAGE: globaleventstravels-api-staging
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy files to Staging VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: "backend/"
-          target: ${{ env.DEPLOY_PATH }}
-          strip_components: 1
-          rm: false
+      - name: Prepare Deployment Directory
+        run: |
+          mkdir -p "$DEPLOY_DIR"
+          mkdir -p "$DEPLOY_DIR/data"
+          mkdir -p "$DEPLOY_DIR/uploads"
 
-      - name: Setup and restart staging service
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            set -e
+      - name: Write .env (from GitHub Environment secret)
+        run: |
+          cat > "$DEPLOY_DIR/.env" <<'ENVEOF'
+          ${{ secrets.ENV_FILE_BACKEND }}
+          ENVEOF
+          chmod 600 "$DEPLOY_DIR/.env"
 
-            echo "=========================================="
-            echo "Global Events Travels STAGING Deployment"
-            echo "=========================================="
+      - name: Copy docker-compose
+        run: cp backend/docker-compose.staging.yml "$DEPLOY_DIR/docker-compose.yml"
 
-            DEPLOY_DIR="${{ env.DEPLOY_PATH }}"
-            SERVICE_NAME="${{ env.SERVICE_NAME }}"
-            APP_PORT="${{ env.APP_PORT }}"
+      - name: Build Docker Image
+        run: docker build -t "$IMAGE:latest" backend/
 
-            cd "$DEPLOY_DIR"
+      - name: Deploy with Docker Compose
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose up -d --force-recreate
 
-            echo "Creating data directories..."
-            mkdir -p data/uploads
-
-            echo "Writing .env file..."
-            cat > .env << 'ENVEOF'
-            ${{ secrets.ENV_FILE_BACKEND }}
-            ENVEOF
-            chmod 600 .env
-
-            echo "Cleaning up cache files..."
-            find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-            find . -type f -name "*.pyc" -delete 2>/dev/null || true
-
-            echo "Setting up Python virtual environment..."
-            if [ ! -d "venv" ]; then
-                python3 -m venv venv
-            fi
-            source venv/bin/activate
-
-            echo "Installing dependencies..."
-            pip install --upgrade pip poetry
-            poetry config virtualenvs.create false
-            poetry install --no-interaction --no-ansi --only main
-
-            echo "Setting up systemd service..."
-
-            cat > /etc/systemd/system/${SERVICE_NAME}.service << SERVICEEOF
-            [Unit]
-            Description=Global Events Travels Staging API Service
-            After=network.target
-
-            [Service]
-            Type=simple
-            User=root
-            WorkingDirectory=${DEPLOY_DIR}
-            Environment="PATH=${DEPLOY_DIR}/venv/bin:/usr/local/bin:/usr/bin:/bin"
-            Environment="PYTHONUNBUFFERED=1"
-            ExecStart=${DEPLOY_DIR}/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT}
-            Restart=always
-            RestartSec=10
-
-            [Install]
-            WantedBy=multi-user.target
-            SERVICEEOF
-
-            echo "Restarting service..."
-            systemctl daemon-reload
-            systemctl enable ${SERVICE_NAME}.service 2>/dev/null || true
-
-            PID=$(lsof -t -i:${APP_PORT} 2>/dev/null) || true
-            if [ -n "$PID" ]; then
-                kill -9 $PID 2>/dev/null || true
-                sleep 2
-            fi
-
-            systemctl restart ${SERVICE_NAME}.service
-            sleep 5
-
-            echo "Health check..."
-            if systemctl is-active --quiet ${SERVICE_NAME}.service; then
-                echo "Staging service is running on port ${APP_PORT}!"
-            else
-                echo "Service failed!"
-                journalctl -u ${SERVICE_NAME}.service --no-pager -n 30
-                exit 1
-            fi
-
-            echo "=========================================="
-            echo "STAGING deployment complete!"
-            echo "   URL: https://staging.api.globaleventstravels.com"
-            echo "=========================================="
+      - name: Health check
+        run: |
+          sleep 5
+          docker inspect --format='{{.State.Status}}' "$IMAGE" | grep -q running
+          echo "=========================================="
+          echo "STAGING deployment complete!"
+          echo "   URL: https://staging.api.globaleventstravels.com"
+          echo "=========================================="
 
   deploy-production:
     name: Deploy to Production

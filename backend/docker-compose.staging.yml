@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    image: globaleventstravels-api-staging:latest
+    container_name: globaleventstravels-api-staging
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    networks:
+      - techpath-web
+
+networks:
+  techpath-web:
+    external: true
