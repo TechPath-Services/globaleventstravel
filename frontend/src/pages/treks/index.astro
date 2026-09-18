@@ -1,7 +1,6 @@
 ---
 import MainLayout from '@/layouts/MainLayout.astro';
 import TrekGrid from '@/components/trek/TrekGrid.astro';
-import TrekTrendingRow from '@/components/trek/TrekTrendingRow.astro';
 import WhyChooseUs from '@/components/sections/WhyChooseUs.astro';
 import GoogleReviews from '@/components/sections/GoogleReviews';
 import { DIFFICULTY_LABELS } from '@/lib/constants';
@@ -15,23 +14,24 @@ const REGION_IMAGE_MAP: Record<string, string> = {
   'Sikkim': '/images/destinations/himachal.jpg',
 };
 
-// Enable SSR for this page - allows dynamic filtering via URL params
+// Enable SSR for dynamic query param filtering
 export const prerender = false;
 
 // Pagination configuration
 const ITEMS_PER_PAGE = 9;
 const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
-// Get page from URL params
+// Get URL query parameters
 const url = Astro.url;
-const currentPage = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+const currentPage = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
 const difficulty = url.searchParams.get('difficulty') || undefined;
 const season = url.searchParams.get('season') || undefined;
 const maxPrice = url.searchParams.get('max_price') || undefined;
 const location = url.searchParams.get('location') || undefined;
 const sort = url.searchParams.get('sort') || undefined;
+const search = url.searchParams.get('search') || undefined;
 
-// Build API URL with filters
+// Build API URL with filters for backend consumption
 const apiParams = new URLSearchParams();
 apiParams.set('skip', String((currentPage - 1) * ITEMS_PER_PAGE));
 apiParams.set('limit', String(ITEMS_PER_PAGE));
@@ -41,8 +41,9 @@ if (season) apiParams.set('season', season);
 if (maxPrice) apiParams.set('max_price', maxPrice);
 if (location) apiParams.set('location', location);
 if (sort) apiParams.set('sort', sort);
+if (search) apiParams.set('search', search);
 
-// Fetch treks from backend API
+// State variables for rendered data
 let treks: any[] = [];
 let totalItems = 0;
 let totalPages = 1;
@@ -58,10 +59,10 @@ try {
     const data = await response.json();
     treks = data.items || [];
     totalItems = data.total || 0;
-    totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
   }
-  
-  // Fetch all treks for filters, regions, budget tiers, popular chips
+
+  // Fetch all treks to dynamically populate filter facets, regions, and popular chips
   const allTreksResponse = await fetch(`${API_BASE_URL}/api/v1/treks?limit=100&status=published`);
   if (allTreksResponse.ok) {
     const allData = await allTreksResponse.json();
@@ -73,7 +74,6 @@ try {
     for (const t of allTreks) {
       const loc = (t.location || '').trim();
       if (!loc) continue;
-      // Use full location, or last part after comma as region (e.g. "Uttarkashi, Uttarakhand" -> "Uttarakhand")
       const regionName = loc.includes(',') ? loc.split(',').pop()!.trim() : loc;
       locationCounts[regionName] = (locationCounts[regionName] || 0) + 1;
     }
@@ -87,25 +87,25 @@ try {
         count,
       }));
 
-    // Derive budget tiers from max trek price
+    // Derive budget tiers based on dataset pricing
     const prices = allTreks.map((t: any) => t.price || 0).filter((p: number) => p > 0);
     const maxP = prices.length ? Math.max(...prices) : 50000;
     const defaultTiers = [10000, 20000, 30000, 50000];
     const relevantTiers = defaultTiers.filter((v) => v <= Math.max(maxP, 50000));
     budgetTiers = [
-      { label: 'Any', value: '' },
+      { label: 'Any Budget', value: '' },
       ...(relevantTiers.length > 0 ? relevantTiers : [Math.ceil(maxP / 10000) * 10000 || 20000]).map((v: number) => ({
         label: `Under ₹${(v / 1000).toFixed(0)}K`,
         value: String(v),
       })),
     ];
 
-    // Build popular chips from most common filters
+    // Build popular chips from common tags
     const topRegions = derivedRegions.slice(0, 2);
     const easyCount = allTreks.filter((t: any) => t.difficulty === 'easy').length;
     const winterSeason = allSeasons.find((s) => /dec|jan|feb/i.test(s));
     popularChips = [
-      ...(topRegions.map((r) => ({ label: r.name, href: `/treks?location=${encodeURIComponent(r.slug)}&page=1` }))),
+      ...topRegions.map((r) => ({ label: r.name, href: `/treks?location=${encodeURIComponent(r.slug)}&page=1` })),
       ...(easyCount > 0 ? [{ label: 'Beginner Friendly', href: '/treks?difficulty=easy&page=1' }] : []),
       ...(budgetTiers.find((b) => b.value === '10000') ? [{ label: 'Under ₹10K', href: '/treks?max_price=10000&page=1' }] : []),
       ...(winterSeason ? [{ label: 'Winter Treks', href: `/treks?season=${encodeURIComponent(winterSeason)}&page=1` }] : []),
@@ -115,16 +115,17 @@ try {
   console.error('Failed to fetch treks:', error);
 }
 
-// Fallbacks when no data
+// Robust default fallbacks
 if (derivedRegions.length === 0) {
   derivedRegions = [
     { name: 'Uttarakhand', slug: 'Uttarakhand', image: '/images/destinations/uttarakhand.jpg', count: 0 },
     { name: 'Himachal Pradesh', slug: 'Himachal', image: '/images/destinations/himachal.jpg', count: 0 },
+    { name: 'Kashmir', slug: 'Kashmir', image: '/images/destinations/srinagar.jpg', count: 0 },
   ];
 }
 if (budgetTiers.length <= 1) {
   budgetTiers = [
-    { label: 'Any', value: '' },
+    { label: 'Any Budget', value: '' },
     { label: 'Under ₹10K', value: '10000' },
     { label: 'Under ₹20K', value: '20000' },
     { label: 'Under ₹30K', value: '30000' },
@@ -140,49 +141,7 @@ if (popularChips.length === 0) {
   ];
 }
 
-// Calculate pagination range
-const getPageNumbers = () => {
-  const pages: (number | string)[] = [];
-  const showPages = 5; // Number of page buttons to show
-  
-  if (totalPages <= showPages) {
-    for (let i = 1; i <= totalPages; i++) {
-      pages.push(i);
-    }
-  } else {
-    // Always show first page
-    pages.push(1);
-    
-    // Calculate start and end of middle pages
-    let start = Math.max(2, currentPage - 1);
-    let end = Math.min(totalPages - 1, currentPage + 1);
-    
-    // Adjust if at the beginning or end
-    if (currentPage <= 3) {
-      end = Math.min(4, totalPages - 1);
-    } else if (currentPage >= totalPages - 2) {
-      start = Math.max(2, totalPages - 3);
-    }
-    
-    // Add ellipsis if needed
-    if (start > 2) pages.push('...');
-    
-    // Add middle pages
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    
-    // Add ellipsis if needed
-    if (end < totalPages - 1) pages.push('...');
-    
-    // Always show last page
-    if (totalPages > 1) pages.push(totalPages);
-  }
-  
-  return pages;
-};
-
-// Build URL with current filters for pagination links
+// Build URL for pagination preservation
 const buildPageUrl = (page: number) => {
   const params = new URLSearchParams();
   params.set('page', String(page));
@@ -191,74 +150,195 @@ const buildPageUrl = (page: number) => {
   if (maxPrice) params.set('max_price', maxPrice);
   if (location) params.set('location', location);
   if (sort) params.set('sort', sort);
+  if (search) params.set('search', search);
   return `/treks?${params.toString()}`;
 };
 
-// Build filter URL (resets to page 1)
+// Build URL for modifying filters (resets page to 1)
 const buildFilterUrl = (filters: Record<string, string | undefined>) => {
   const params = new URLSearchParams();
   params.set('page', '1');
-  const allFilters = { difficulty, season, max_price: maxPrice, location, sort, ...filters };
+  const allFilters = {
+    difficulty,
+    season,
+    max_price: maxPrice,
+    location,
+    sort,
+    search,
+    ...filters,
+  };
   Object.entries(allFilters).forEach(([key, value]) => {
-    if (value) params.set(key, value);
+    if (value !== undefined && value !== '') {
+      params.set(key, value);
+    }
   });
-  return `/treks?${params.toString()}`;
+  const queryString = params.toString();
+  return queryString ? `/treks?${queryString}` : '/treks';
 };
 
-// Fetch featured treks for trending section
-let featuredTreks: any[] = [];
-try {
-  const featuredResponse = await fetch(`${API_BASE_URL}/api/v1/treks/featured?limit=6`);
-  if (featuredResponse.ok) {
-    featuredTreks = await featuredResponse.json();
-  }
-} catch (error) {
-  console.error('Failed to fetch featured treks:', error);
+// Compute dynamic active filter chips
+interface ActiveFilter {
+  key: string;
+  label: string;
+  displayValue: string;
+  removeUrl: string;
 }
 
+const activeFilters: ActiveFilter[] = [];
+
+if (search) {
+  activeFilters.push({
+    key: 'search',
+    label: 'Keyword',
+    displayValue: `"${search}"`,
+    removeUrl: buildFilterUrl({ search: undefined }),
+  });
+}
+
+if (location) {
+  activeFilters.push({
+    key: 'location',
+    label: 'Region',
+    displayValue: location,
+    removeUrl: buildFilterUrl({ location: undefined }),
+  });
+}
+
+if (difficulty) {
+  const diffLabel = DIFFICULTY_LABELS[difficulty]?.label || difficulty;
+  activeFilters.push({
+    key: 'difficulty',
+    label: 'Difficulty',
+    displayValue: diffLabel,
+    removeUrl: buildFilterUrl({ difficulty: undefined }),
+  });
+}
+
+if (maxPrice) {
+  const tier = budgetTiers.find((b) => b.value === maxPrice);
+  const priceLabel = tier ? tier.label : `Under ₹${(parseInt(maxPrice, 10) / 1000).toFixed(0)}K`;
+  activeFilters.push({
+    key: 'max_price',
+    label: 'Budget',
+    displayValue: priceLabel,
+    removeUrl: buildFilterUrl({ max_price: undefined }),
+  });
+}
+
+if (season) {
+  activeFilters.push({
+    key: 'season',
+    label: 'Season',
+    displayValue: season,
+    removeUrl: buildFilterUrl({ season: undefined }),
+  });
+}
+
+// Calculate pagination page sequence
+const getPageNumbers = () => {
+  const pages: (number | string)[] = [];
+  const showPages = 5;
+
+  if (totalPages <= showPages) {
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+  } else {
+    pages.push(1);
+    let start = Math.max(2, currentPage - 1);
+    let end = Math.min(totalPages - 1, currentPage + 1);
+
+    if (currentPage <= 3) {
+      end = Math.min(4, totalPages - 1);
+    } else if (currentPage >= totalPages - 2) {
+      start = Math.max(2, totalPages - 3);
+    }
+
+    if (start > 2) pages.push('...');
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    if (end < totalPages - 1) pages.push('...');
+    if (totalPages > 1) pages.push(totalPages);
+  }
+
+  return pages;
+};
+
 const pageNumbers = getPageNumbers();
-const startItem = (currentPage - 1) * ITEMS_PER_PAGE + 1;
+const startItem = totalItems > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0;
 const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
 ---
 
-<MainLayout 
-  title="All Treks" 
-  description="Browse our complete collection of Himalayan treks. Filter by difficulty, price, and season to find your perfect adventure."
+<MainLayout
+  title="All Himalayan Treks & Expeditions | Global Events Travels"
+  description="Browse our complete collection of Himalayan treks. Filter by difficulty, budget, season, and region to find your dream mountain adventure."
 >
-  <!-- Cinematic Hero -->
-  <section class="relative min-h-[50vh] flex items-center">
-    <div 
-      class="absolute inset-0 bg-cover bg-center bg-no-repeat" 
+  <!-- Responsive Cinematic Hero Section -->
+  <section class="relative min-h-[40vh] sm:min-h-[46vh] flex items-center justify-center bg-neutral-900 overflow-hidden">
+    <div
+      class="absolute inset-0 bg-cover bg-center bg-no-repeat transform scale-105 transition-transform duration-1000"
       style="background-image: url('/images/home/hero-bg.webp')"
       aria-hidden="true"
     ></div>
-    <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70"></div>
-    <div class="relative z-10 container-custom w-full py-16 md:py-24">
-      <div class="text-center text-white max-w-3xl mx-auto">
-        <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 text-white">Find Your Next Himalayan Adventure</h1>
-        <p class="text-lg md:text-xl text-white/90">
-          From beginner-friendly snow treks to extreme summit expeditions.
-        </p>
+    <div class="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-neutral-900/90"></div>
+
+    <div class="relative z-10 container-custom w-full py-12 sm:py-16 md:py-20 text-center">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs sm:text-sm font-medium text-amber-300 mb-4 shadow-sm">
+        <span class="text-base">🔮</span>
+        <span>Himalayan Trekking Expeditions & Treks</span>
       </div>
+      <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight mb-4 leading-tight">
+        Find Your Next Himalayan Adventure
+      </h1>
+      <p class="text-sm sm:text-base md:text-lg lg:text-xl text-neutral-200/95 max-w-2xl mx-auto leading-relaxed">
+        Explore curated high-altitude trails, beginner snow treks, and summit expeditions guided by certified mountain leaders.
+      </p>
     </div>
   </section>
 
-  <!-- Smart Search Bar -->
-  <section class="relative z-20 -mt-12">
+  <!-- Responsive Smart Search & Filter Bar -->
+  <section class="relative z-20 -mt-10 sm:-mt-12 md:-mt-14">
     <div class="container-custom">
-      <div class="bg-white rounded-2xl shadow-xl border border-neutral-200 p-6 md:p-8">
-        <form 
-          action="/treks" 
-          method="get" 
-          class="flex flex-col lg:flex-row gap-4 items-end"
+      <div class="bg-white rounded-2xl shadow-xl border border-neutral-200/90 p-5 sm:p-7 md:p-8">
+        <form
+          action="/treks"
+          method="get"
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 sm:gap-4 items-end"
         >
           <input type="hidden" name="page" value="1" />
-          <div class="flex-1 w-full">
-            <label for="location" class="block text-sm font-medium text-neutral-700 mb-1">Where do you want to trek?</label>
-            <select 
-              id="location" 
-              name="location" 
-              class="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+
+          <!-- Keyword Search Input (lg: 4 cols) -->
+          <div class="sm:col-span-2 lg:col-span-4">
+            <label for="search" class="block text-xs sm:text-sm font-semibold text-neutral-700 mb-1.5">
+              Search Treks
+            </label>
+            <div class="relative">
+              <input
+                type="text"
+                id="search"
+                name="search"
+                value={search || ''}
+                placeholder="e.g. Kedarkantha, Valley of Flowers..."
+                class="w-full pl-10 pr-4 py-2.5 sm:py-3 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all placeholder:text-neutral-400 bg-white"
+              />
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Region Dropdown (lg: 3 cols) -->
+          <div class="lg:col-span-3">
+            <label for="location" class="block text-xs sm:text-sm font-semibold text-neutral-700 mb-1.5">
+              Region / State
+            </label>
+            <select
+              id="location"
+              name="location"
+              class="w-full px-3.5 py-2.5 sm:py-3 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-all text-neutral-800"
             >
               <option value="">All Regions</option>
               {derivedRegions.map((r) => (
@@ -266,133 +346,225 @@ const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
               ))}
             </select>
           </div>
-          <div class="w-full lg:w-48">
-            <label for="difficulty" class="block text-sm font-medium text-neutral-700 mb-1">Difficulty</label>
-            <select 
-              id="difficulty" 
-              name="difficulty" 
-              class="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+
+          <!-- Difficulty Dropdown (lg: 2 cols) -->
+          <div class="lg:col-span-2">
+            <label for="difficulty" class="block text-xs sm:text-sm font-semibold text-neutral-700 mb-1.5">
+              Difficulty
+            </label>
+            <select
+              id="difficulty"
+              name="difficulty"
+              class="w-full px-3.5 py-2.5 sm:py-3 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-all text-neutral-800"
             >
-              <option value="">Any</option>
+              <option value="">Any Difficulty</option>
               {Object.entries(DIFFICULTY_LABELS).map(([key, val]) => (
                 <option value={key} {...(difficulty === key ? { selected: true } : {})}>{val.label}</option>
               ))}
             </select>
           </div>
-          <div class="w-full lg:w-48">
-            <label for="max_price" class="block text-sm font-medium text-neutral-700 mb-1">Budget</label>
-            <select 
-              id="max_price" 
-              name="max_price" 
-              class="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+
+          <!-- Budget Dropdown (lg: 2 cols) -->
+          <div class="lg:col-span-2">
+            <label for="max_price" class="block text-xs sm:text-sm font-semibold text-neutral-700 mb-1.5">
+              Budget
+            </label>
+            <select
+              id="max_price"
+              name="max_price"
+              class="w-full px-3.5 py-2.5 sm:py-3 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-all text-neutral-800"
             >
               {budgetTiers.map((tier) => (
                 <option value={tier.value} {...(maxPrice === tier.value ? { selected: true } : {})}>{tier.label}</option>
               ))}
             </select>
           </div>
-          <button 
-            type="submit" 
-            class="w-full lg:w-auto px-8 py-3 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            Search
-          </button>
-        </form>
-        <!-- Popular search chips (derived from trek data) -->
-        <div class="mt-6 pt-6 border-t border-neutral-100">
-          <p class="text-sm text-neutral-500 mb-3">Popular searches</p>
-          <div class="flex flex-wrap gap-2">
-            {popularChips.map((chip) => (
-              <a href={chip.href} class="px-4 py-2 bg-neutral-100 hover:bg-primary-50 text-neutral-700 hover:text-primary-700 rounded-full text-sm font-medium transition-colors">{chip.label}</a>
-            ))}
+
+          <!-- Submit Search Button (lg: 1 col) -->
+          <div class="sm:col-span-2 lg:col-span-1">
+            <button
+              type="submit"
+              class="w-full py-2.5 sm:py-3 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white font-semibold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 min-h-[44px]"
+              aria-label="Submit search"
+            >
+              <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <span class="lg:hidden text-sm">Find Treks</span>
+            </button>
           </div>
+        </form>
+
+        <!-- Popular Search Chips -->
+        <div class="mt-5 pt-4 sm:mt-6 sm:pt-5 border-t border-neutral-100 flex flex-wrap items-center gap-2">
+          <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wider mr-1">Popular:</span>
+          {popularChips.map((chip) => (
+            <a
+              href={chip.href}
+              class="px-3 py-1.5 bg-neutral-100 hover:bg-primary-50 text-neutral-700 hover:text-primary-700 rounded-full text-xs sm:text-sm font-medium transition-colors border border-transparent hover:border-primary-200"
+            >
+              {chip.label}
+            </a>
+          ))}
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Trending Treks Section -->
-  {featuredTreks.length > 0 && (
-    <section class="section bg-white">
-      <div class="container-custom">
-        <div class="mb-8">
-          <span class="inline-block text-primary-500 font-semibold text-sm uppercase tracking-wider mb-2">Trending This Season</span>
-          <h2 class="text-2xl md:text-3xl font-bold text-secondary-600">Featured Treks</h2>
-        </div>
-        <TrekTrendingRow treks={featuredTreks} />
-      </div>
-    </section>
-  )}
-
-  <!-- Main Content -->
-  <section class="section bg-neutral-50">
+  <!-- Main Catalog Content Section -->
+  <section class="section bg-neutral-50 pt-8 sm:pt-12">
     <div class="container-custom">
-      <div class="lg:flex lg:gap-8">
-        
-        <!-- Filters Sidebar -->
-        <aside class="lg:w-72 flex-shrink-0 mb-8 lg:mb-0">
-          <div class="bg-white rounded-xl border border-neutral-200 p-6 sticky top-24">
-            <div class="flex items-center justify-between mb-6">
-              <h3 class="text-lg font-semibold text-secondary-600 flex items-center gap-2">
+      <!-- Active Filter Chips Bar (Full Width) -->
+      {activeFilters.length > 0 && (
+        <div class="flex flex-wrap items-center gap-2 mb-6 p-3.5 sm:p-4 bg-primary-50/60 border border-primary-200/70 rounded-2xl">
+          <span class="text-xs font-bold uppercase tracking-wider text-neutral-600 flex items-center gap-1.5 mr-1">
+            <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Active Filters:
+          </span>
+
+          {activeFilters.map((filter) => (
+            <a
+              href={filter.removeUrl}
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-secondary-600 text-xs font-semibold border border-primary-200 hover:border-primary-400 hover:bg-primary-50 transition-all shadow-xs group"
+              title={`Remove ${filter.label} filter`}
+            >
+              <span class="text-neutral-500 font-normal">{filter.label}:</span>
+              <span>{filter.displayValue}</span>
+              <svg class="w-3.5 h-3.5 text-neutral-400 group-hover:text-primary-600 transition-colors ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </a>
+          ))}
+
+          <a
+            href="/treks"
+            class="ml-auto text-xs font-bold text-primary-600 hover:text-primary-700 hover:underline px-2 py-1 transition-colors"
+          >
+            Clear All
+          </a>
+        </div>
+      )}
+
+      <!-- Mobile & Tablet Filter Trigger Toolbar (<1024px) -->
+      <div class="lg:hidden mb-6 flex items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-neutral-200 shadow-xs">
+        <button
+          id="mobile-filter-open"
+          type="button"
+          class="inline-flex items-center gap-2 px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-800 font-semibold text-xs sm:text-sm rounded-xl transition-colors min-h-[44px]"
+          aria-label="Open filter drawer"
+        >
+          <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          <span>Filters</span>
+          {activeFilters.length > 0 && (
+            <span class="w-5 h-5 rounded-full bg-primary-500 text-white text-[11px] font-bold flex items-center justify-center">
+              {activeFilters.length}
+            </span>
+          )}
+        </button>
+
+        <div class="flex items-center gap-2">
+          <label for="sort-treks-mobile" class="text-xs font-medium text-neutral-500">Sort:</label>
+          <select
+            id="sort-treks-mobile"
+            class="px-3 py-2 border border-neutral-200 rounded-xl text-xs sm:text-sm bg-white text-neutral-800 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
+            onchange="window.location.href = this.value"
+          >
+            <option value={buildFilterUrl({ sort: 'newest' })} selected={sort === 'newest' || !sort}>Newest</option>
+            <option value={buildFilterUrl({ sort: 'popularity' })} selected={sort === 'popularity'}>Popularity</option>
+            <option value={buildFilterUrl({ sort: 'price_asc' })} selected={sort === 'price_asc'}>Price: Low to High</option>
+            <option value={buildFilterUrl({ sort: 'price_desc' })} selected={sort === 'price_desc'}>Price: High to Low</option>
+            <option value={buildFilterUrl({ sort: 'rating' })} selected={sort === 'rating'}>Highest Rated</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Main Split Grid: Desktop Sticky Sidebar + Catalog Cards -->
+      <div class="lg:flex lg:gap-8 items-start">
+        <!-- Desktop Sticky Filters Sidebar (hidden on mobile/tablet) -->
+        <aside class="hidden lg:block lg:w-72 flex-shrink-0">
+          <div class="bg-white rounded-2xl border border-neutral-200/90 p-6 sticky top-24 shadow-sm space-y-6">
+            <!-- Sidebar Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-neutral-100">
+              <h3 class="text-base font-bold text-secondary-600 flex items-center gap-2">
                 <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
                 Filters
               </h3>
-              <a href="/treks" class="text-sm text-primary-500 hover:text-primary-600 font-medium">
-                Reset
-              </a>
+              {activeFilters.length > 0 && (
+                <a href="/treks" class="text-xs font-semibold text-primary-600 hover:text-primary-700 hover:underline">
+                  Reset All
+                </a>
+              )}
             </div>
 
             <!-- Difficulty Filter (Collapsible) -->
-            <details class="group mb-4" open>
-              <summary class="flex items-center gap-2 font-medium text-neutral-800 cursor-pointer list-none py-2 hover:text-secondary-600">
-                <svg class="w-5 h-5 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                Difficulty
-                <svg class="w-4 h-4 ml-auto transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <details class="group" open>
+              <summary class="flex items-center justify-between font-semibold text-neutral-800 text-sm cursor-pointer list-none py-1 hover:text-secondary-600">
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Difficulty
+                </span>
+                <svg class="w-4 h-4 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
               </summary>
-              <div class="mt-3 space-y-2 pl-7">
-                {Object.entries(DIFFICULTY_LABELS).map(([key, value]) => (
-                  <a 
+              <div class="mt-3 space-y-1.5 pl-6">
+                {Object.entries(DIFFICULTY_LABELS).map(([key, val]) => (
+                  <a
                     href={buildFilterUrl({ difficulty: difficulty === key ? undefined : key })}
-                    class={`flex items-center gap-3 cursor-pointer group-item px-2 py-1.5 rounded-lg transition-colors ${difficulty === key ? 'bg-primary-50' : 'hover:bg-neutral-50'}`}
+                    class={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      difficulty === key
+                        ? 'bg-primary-500 text-white shadow-xs'
+                        : 'text-neutral-700 hover:bg-neutral-50'
+                    }`}
                   >
-                    <span class={`badge ${value.color} text-xs`}>{value.label}</span>
+                    <span>{val.label}</span>
+                    {difficulty === key && (
+                      <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
                   </a>
                 ))}
               </div>
             </details>
 
-            <!-- Price Range Filter (Collapsible) -->
-            <details class="group mb-4" open>
-              <summary class="flex items-center gap-2 font-medium text-neutral-800 cursor-pointer list-none py-2 hover:text-secondary-600">
-                <svg class="w-5 h-5 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Budget
-                <svg class="w-4 h-4 ml-auto transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <!-- Budget Filter (Collapsible) -->
+            <details class="group" open>
+              <summary class="flex items-center justify-between font-semibold text-neutral-800 text-sm cursor-pointer list-none py-1 hover:text-secondary-600">
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Budget Range
+                </span>
+                <svg class="w-4 h-4 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                 </svg>
               </summary>
-              <div class="mt-3 space-y-2 pl-7">
+              <div class="mt-3 space-y-1.5 pl-6">
                 {budgetTiers.filter((t) => t.value).map((tier) => (
-                  <a 
+                  <a
                     href={buildFilterUrl({ max_price: maxPrice === tier.value ? undefined : tier.value })}
-                    class={`flex items-center gap-3 cursor-pointer group-item px-2 py-1.5 rounded-lg transition-colors ${maxPrice === tier.value ? 'bg-primary-50 text-primary-700' : 'hover:bg-neutral-50'}`}
+                    class={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      maxPrice === tier.value
+                        ? 'bg-primary-500 text-white shadow-xs'
+                        : 'text-neutral-700 hover:bg-neutral-50'
+                    }`}
                   >
-                    <span class={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${maxPrice === tier.value ? 'border-primary-500' : 'border-neutral-300'}`}>
-                      {maxPrice === tier.value && (
-                        <span class="w-2 h-2 rounded-full bg-primary-500"></span>
-                      )}
-                    </span>
-                    <span class="text-neutral-600 group-hover:text-secondary-600">{tier.label}</span>
+                    <span>{tier.label}</span>
+                    {maxPrice === tier.value && (
+                      <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
                   </a>
                 ))}
               </div>
@@ -400,30 +572,66 @@ const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
 
             <!-- Season Filter (Collapsible) -->
             {allSeasons.length > 0 && (
-              <details class="group mb-4" open>
-                <summary class="flex items-center gap-2 font-medium text-neutral-800 cursor-pointer list-none py-2 hover:text-secondary-600">
-                  <svg class="w-5 h-5 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                  Season
-                  <svg class="w-4 h-4 ml-auto transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <details class="group" open>
+                <summary class="flex items-center justify-between font-semibold text-neutral-800 text-sm cursor-pointer list-none py-1 hover:text-secondary-600">
+                  <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    Season
+                  </span>
+                  <svg class="w-4 h-4 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                   </svg>
                 </summary>
-                <div class="mt-3 grid grid-cols-2 gap-2 pl-7">
-                  {allSeasons.slice(0, 6).map((s) => (
-                    <a 
+                <div class="mt-3 flex flex-wrap gap-1.5 pl-6">
+                  {allSeasons.slice(0, 8).map((s) => (
+                    <a
                       href={buildFilterUrl({ season: season === s ? undefined : s })}
-                      class={`flex items-center gap-2 cursor-pointer group-item px-2 py-1.5 rounded-lg transition-colors ${season === s ? 'bg-primary-50 text-primary-700' : 'hover:bg-neutral-50'}`}
+                      class={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                        season === s
+                          ? 'bg-primary-500 text-white border-primary-500 shadow-xs'
+                          : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300'
+                      }`}
                     >
-                      <span class={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${season === s ? 'border-primary-500 bg-primary-500' : 'border-neutral-300'}`}>
-                        {season === s && (
-                          <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                          </svg>
-                        )}
-                      </span>
-                      <span class="text-sm text-neutral-600 group-hover:text-secondary-600 truncate">{s}</span>
+                      {s}
+                    </a>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            <!-- Region Filter (Collapsible) -->
+            {derivedRegions.length > 0 && (
+              <details class="group" open>
+                <summary class="flex items-center justify-between font-semibold text-neutral-800 text-sm cursor-pointer list-none py-1 hover:text-secondary-600">
+                  <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Region
+                  </span>
+                  <svg class="w-4 h-4 text-neutral-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div class="mt-3 space-y-1 pl-6">
+                  {derivedRegions.map((r) => (
+                    <a
+                      href={buildFilterUrl({ location: location === r.slug ? undefined : r.slug })}
+                      class={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        location === r.slug
+                          ? 'bg-primary-500 text-white shadow-xs'
+                          : 'text-neutral-700 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <span class="truncate">{r.name}</span>
+                      {r.count > 0 && (
+                        <span class={`text-[10px] ${location === r.slug ? 'text-primary-100' : 'text-neutral-400'}`}>
+                          ({r.count})
+                        </span>
+                      )}
                     </a>
                   ))}
                 </div>
@@ -432,85 +640,100 @@ const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
           </div>
         </aside>
 
-        <!-- Trek Grid -->
-        <div class="flex-grow">
-          <!-- Results Header + Sort -->
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <p class="text-neutral-600">
+        <!-- Main Catalog Cards Area -->
+        <div class="flex-grow min-w-0">
+          <!-- Desktop Results Header & Sort Controls -->
+          <div class="hidden lg:flex items-center justify-between gap-4 mb-6 bg-white p-4 rounded-2xl border border-neutral-200/90 shadow-xs">
+            <p class="text-sm text-neutral-600">
               {totalItems > 0 ? (
                 <>
-                  Showing <span class="font-semibold text-secondary-600">{startItem}-{endItem}</span> of <span class="font-semibold text-secondary-600">{totalItems}</span> treks
+                  Showing <span class="font-bold text-secondary-600">{startItem}–{endItem}</span> of <span class="font-bold text-secondary-600">{totalItems}</span> available treks
                 </>
               ) : (
-                <span>No treks found</span>
+                <span class="font-medium text-neutral-700">0 treks found</span>
               )}
             </p>
-            <div class="flex items-center gap-2">
-              <label for="sort-treks" class="text-sm text-neutral-600">Sort by</label>
-              <select 
-                id="sort-treks" 
-                class="px-3 py-2 border border-neutral-200 rounded-lg text-sm bg-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+
+            <div class="flex items-center gap-2.5">
+              <label for="sort-treks-desktop" class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                Sort By:
+              </label>
+              <select
+                id="sort-treks-desktop"
+                class="px-3.5 py-2 border border-neutral-200 rounded-xl text-xs font-semibold bg-white text-neutral-800 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all cursor-pointer shadow-xs"
                 onchange="window.location.href = this.value"
               >
                 <option value={buildFilterUrl({ sort: 'newest' })} selected={sort === 'newest' || !sort}>Newest</option>
                 <option value={buildFilterUrl({ sort: 'popularity' })} selected={sort === 'popularity'}>Popularity</option>
-                <option value={buildFilterUrl({ sort: 'price_asc' })} selected={sort === 'price_asc'}>Price (Low to High)</option>
-                <option value={buildFilterUrl({ sort: 'price_desc' })} selected={sort === 'price_desc'}>Price (High to Low)</option>
-                <option value={buildFilterUrl({ sort: 'rating' })} selected={sort === 'rating'}>Rating</option>
+                <option value={buildFilterUrl({ sort: 'price_asc' })} selected={sort === 'price_asc'}>Price: Low to High</option>
+                <option value={buildFilterUrl({ sort: 'price_desc' })} selected={sort === 'price_desc'}>Price: High to Low</option>
+                <option value={buildFilterUrl({ sort: 'rating' })} selected={sort === 'rating'}>Highest Rated</option>
               </select>
             </div>
           </div>
 
-          <!-- Trek Cards Grid -->
-          <TrekGrid treks={treks} columns={3} />
+          <!-- Responsive Trek Grid -->
+          <TrekGrid treks={treks} columns={3} resetUrl="/treks" />
 
-          <!-- Pagination -->
+          <!-- Responsive Pagination Controls -->
           {totalPages > 1 && (
             <div class="mt-12 flex justify-center">
-              <nav class="flex items-center gap-2" aria-label="Pagination">
+              <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Catalog Pagination">
                 <!-- Previous Button -->
                 {currentPage > 1 ? (
-                  <a 
+                  <a
                     href={buildPageUrl(currentPage - 1)}
-                    class="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors"
+                    class="px-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 text-xs sm:text-sm font-semibold transition-colors shadow-xs flex items-center gap-1.5 min-h-[44px]"
                   >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
                     Previous
                   </a>
                 ) : (
-                  <span class="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-400 cursor-not-allowed">
+                  <span class="px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-400 text-xs sm:text-sm font-semibold cursor-not-allowed flex items-center gap-1.5 min-h-[44px]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
                     Previous
                   </span>
                 )}
 
                 <!-- Page Numbers -->
-                {pageNumbers.map((page) => (
+                {pageNumbers.map((page) =>
                   page === '...' ? (
-                    <span class="px-3 py-2 text-neutral-400">...</span>
+                    <span class="px-3 py-2 text-neutral-400 font-bold text-sm">...</span>
                   ) : page === currentPage ? (
-                    <span class="px-4 py-2 rounded-lg bg-primary-500 text-white font-medium">
+                    <span class="w-10 h-10 rounded-xl bg-primary-500 text-white font-bold text-sm flex items-center justify-center shadow-md">
                       {page}
                     </span>
                   ) : (
-                    <a 
+                    <a
                       href={buildPageUrl(page as number)}
-                      class="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors"
+                      class="w-10 h-10 rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 font-semibold text-sm flex items-center justify-center transition-colors shadow-xs"
                     >
                       {page}
                     </a>
                   )
-                ))}
+                )}
 
                 <!-- Next Button -->
                 {currentPage < totalPages ? (
-                  <a 
+                  <a
                     href={buildPageUrl(currentPage + 1)}
-                    class="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors"
+                    class="px-4 py-2.5 rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 text-xs sm:text-sm font-semibold transition-colors shadow-xs flex items-center gap-1.5 min-h-[44px]"
                   >
                     Next
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                   </a>
                 ) : (
-                  <span class="px-4 py-2 rounded-lg border border-neutral-200 text-neutral-400 cursor-not-allowed">
+                  <span class="px-4 py-2.5 rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-400 text-xs sm:text-sm font-semibold cursor-not-allowed flex items-center gap-1.5 min-h-[44px]">
                     Next
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
                   </span>
                 )}
               </nav>
@@ -521,31 +744,38 @@ const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
     </div>
   </section>
 
-  <!-- Explore by Region -->
-  <section class="section bg-white">
+  <!-- Explore by Region Section -->
+  <section class="section bg-white border-t border-neutral-100">
     <div class="container-custom">
       <div class="text-center mb-10">
-        <span class="inline-block text-primary-500 font-semibold text-sm uppercase tracking-wider mb-2">Discover</span>
-        <h2 class="text-3xl md:text-4xl font-bold text-secondary-600">Explore by Region</h2>
+        <span class="inline-block text-primary-500 font-semibold text-xs sm:text-sm uppercase tracking-wider mb-2">
+          Discover Popular Hubs
+        </span>
+        <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-secondary-600">
+          Explore by Himalayan Region
+        </h2>
       </div>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {derivedRegions.map((region) => (
-          <a 
+          <a
             href={`/treks?location=${encodeURIComponent(region.slug)}&page=1`}
-            class="group relative aspect-[4/3] rounded-xl overflow-hidden block"
+            class="group relative aspect-[4/3] rounded-2xl overflow-hidden block shadow-sm hover:shadow-lg transition-all duration-300"
           >
-            <img 
-              src={region.image} 
+            <img
+              src={region.image}
               alt={region.name}
-              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
               loading="lazy"
+              width="400"
+              height="300"
             />
-            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
-            <div class="absolute bottom-0 left-0 right-0 p-4">
-              <h3 class="text-lg font-bold text-white">{region.name}</h3>
-              <span class="text-white/90 text-sm flex items-center gap-1">
-                {region.count > 0 ? `${region.count} trek${region.count !== 1 ? 's' : ''} · Explore` : 'Explore treks'}
-                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+              <h3 class="text-base sm:text-lg font-bold text-white mb-1">{region.name}</h3>
+              <span class="text-white/90 text-xs sm:text-sm font-medium flex items-center gap-1.5">
+                {region.count > 0 ? `${region.count} trek${region.count !== 1 ? 's' : ''} available` : 'Explore Trails'}
+                <svg class="w-4 h-4 text-primary-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </span>
@@ -556,73 +786,279 @@ const endItem = Math.min(currentPage * ITEMS_PER_PAGE, totalItems);
     </div>
   </section>
 
-  <!-- Why Trek With Us -->
+  <!-- Why Trek With Us Section -->
   <WhyChooseUs />
 
-  <!-- Google Reviews (What Our Trekkers Say - same as home page) -->
+  <!-- Google Reviews Section -->
   <GoogleReviews client:visible />
 
   <!-- FAQ Section -->
-  <section class="section bg-neutral-50">
+  <section class="section bg-neutral-50 border-t border-neutral-100">
     <div class="container-custom max-w-3xl">
       <div class="text-center mb-10">
-        <span class="inline-block text-primary-500 font-semibold text-sm uppercase tracking-wider mb-2">Help</span>
-        <h2 class="text-3xl md:text-4xl font-bold text-secondary-600">Frequently Asked Questions</h2>
+        <span class="inline-block text-primary-500 font-semibold text-xs sm:text-sm uppercase tracking-wider mb-2">Help & Advice</span>
+        <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-secondary-600">Frequently Asked Questions</h2>
       </div>
+
       <div class="space-y-4">
-        <details class="bg-white rounded-xl border border-neutral-200 overflow-hidden group">
-          <summary class="px-6 py-4 font-semibold text-neutral-900 cursor-pointer list-none flex items-center justify-between">
+        <details class="bg-white rounded-2xl border border-neutral-200/90 overflow-hidden group shadow-xs">
+          <summary class="px-6 py-4 font-semibold text-neutral-900 cursor-pointer list-none flex items-center justify-between text-sm sm:text-base">
             How do I book a trek?
-            <svg class="w-5 h-5 text-neutral-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-neutral-500 transition-transform group-open:rotate-180 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
-          <div class="px-6 pb-4 text-neutral-600">
-            Click on any trek to view details, then fill the enquiry form or WhatsApp us. We'll confirm availability and share the booking process.
+          <div class="px-6 pb-4 text-neutral-600 text-xs sm:text-sm leading-relaxed border-t border-neutral-100 pt-3">
+            Click on any trek card to view its comprehensive itinerary, available batches, gear checklist, and inclusions. You can submit an enquiry form or message us directly on WhatsApp to reserve your spot.
           </div>
         </details>
-        <details class="bg-white rounded-xl border border-neutral-200 overflow-hidden group">
-          <summary class="px-6 py-4 font-semibold text-neutral-900 cursor-pointer list-none flex items-center justify-between">
+
+        <details class="bg-white rounded-2xl border border-neutral-200/90 overflow-hidden group shadow-xs">
+          <summary class="px-6 py-4 font-semibold text-neutral-900 cursor-pointer list-none flex items-center justify-between text-sm sm:text-base">
             What difficulty level should I choose?
-            <svg class="w-5 h-5 text-neutral-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-neutral-500 transition-transform group-open:rotate-180 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
-          <div class="px-6 pb-4 text-neutral-600">
-            Easy treks suit first-timers. Moderate requires basic fitness. Difficult and above need prior trekking experience. Check each trek's fitness requirements.
+          <div class="px-6 pb-4 text-neutral-600 text-xs sm:text-sm leading-relaxed border-t border-neutral-100 pt-3">
+            Easy treks suit beginners and families. Moderate treks require basic cardio fitness. Difficult, Challenging, and Extreme expeditions demand prior high-altitude trekking experience and advanced physical preparation.
           </div>
         </details>
-        <details class="bg-white rounded-xl border border-neutral-200 overflow-hidden group">
-          <summary class="px-6 py-4 font-semibold text-neutral-900 cursor-pointer list-none flex items-center justify-between">
-            When is the best season to trek?
-            <svg class="w-5 h-5 text-neutral-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+        <details class="bg-white rounded-2xl border border-neutral-200/90 overflow-hidden group shadow-xs">
+          <summary class="px-6 py-4 font-semibold text-neutral-900 cursor-pointer list-none flex items-center justify-between text-sm sm:text-base">
+            When is the best season to trek in the Himalayas?
+            <svg class="w-5 h-5 text-neutral-500 transition-transform group-open:rotate-180 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
-          <div class="px-6 pb-4 text-neutral-600">
-            Depends on the trek. Winter treks (Dec-Feb) offer snow. Summer (April-June) is ideal for most Himalayan treks. Monsoon (July-Sept) is good for Valley of Flowers.
+          <div class="px-6 pb-4 text-neutral-600 text-xs sm:text-sm leading-relaxed border-t border-neutral-100 pt-3">
+            Winter (Dec–Feb) is magical for snow trekking (Kedarkantha, Kuari Pass). Summer (April–June) offers lush green meadows and clear skies. Post-monsoon/Autumn (Sept–Nov) delivers crisp visibility and stable weather across Uttarakhand and Himachal.
           </div>
         </details>
       </div>
     </div>
   </section>
 
-  <!-- Final CTA Banner -->
-  <section class="bg-white py-16 border-t border-neutral-200">
+  <!-- Final Call to Action Banner -->
+  <section class="bg-white py-14 sm:py-18 border-t border-neutral-200">
     <div class="container-custom text-center">
-      <h2 class="text-3xl md:text-4xl font-bold text-neutral-900 mb-4">Ready for Your Next Adventure?</h2>
-      <p class="text-lg text-neutral-600 max-w-xl mx-auto mb-8">
-        Get your free personalized trek itinerary sent to WhatsApp. No spam, just your perfect adventure plan.
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-neutral-900 mb-4">
+        Ready for Your Next Mountain Adventure?
+      </h2>
+      <p class="text-sm sm:text-base md:text-lg text-neutral-600 max-w-xl mx-auto mb-8">
+        Get your free customized trek itinerary and batch availability details sent directly to your WhatsApp.
       </p>
-      <a 
-        href="/#lead-form" 
-        class="inline-flex items-center gap-2 px-8 py-4 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-lg transition-colors"
+      <a
+        href="/#lead-form"
+        class="inline-flex items-center gap-2 px-8 py-4 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white font-semibold text-sm sm:text-base rounded-xl shadow-lg hover:shadow-xl transition-all"
       >
-        Get Free Itinerary
+        <span>Get Free Itinerary</span>
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
         </svg>
       </a>
     </div>
   </section>
+
+  <!-- Mobile & Tablet Filter Drawer / Sliding Sheet Modal -->
+  <div
+    id="mobile-filter-drawer"
+    class="fixed inset-0 z-50 invisible pointer-events-none transition-all duration-300 opacity-0"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Filter Treks Drawer"
+  >
+    <!-- Backdrop overlay -->
+    <div
+      id="mobile-filter-backdrop"
+      class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300 opacity-0"
+    ></div>
+
+    <!-- Sliding Drawer Panel -->
+    <div
+      id="mobile-filter-panel"
+      class="fixed inset-y-0 right-0 w-full max-w-xs sm:max-w-sm bg-white shadow-2xl z-10 flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out"
+    >
+      <!-- Drawer Header -->
+      <div class="p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
+        <div class="flex items-center gap-2">
+          <h3 class="text-base font-bold text-secondary-600">Filter Treks</h3>
+          {activeFilters.length > 0 && (
+            <span class="w-5 h-5 rounded-full bg-primary-500 text-white text-[11px] font-bold flex items-center justify-center">
+              {activeFilters.length}
+            </span>
+          )}
+        </div>
+        <button
+          id="mobile-filter-close"
+          type="button"
+          class="p-2 rounded-xl text-neutral-500 hover:text-neutral-800 hover:bg-neutral-200/60 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Close filter drawer"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Scrollable Filter Facets -->
+      <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        <!-- Difficulty Section -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Difficulty Level</h4>
+          <div class="flex flex-wrap gap-2">
+            {Object.entries(DIFFICULTY_LABELS).map(([key, val]) => (
+              <a
+                href={buildFilterUrl({ difficulty: difficulty === key ? undefined : key })}
+                class={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+                  difficulty === key
+                    ? 'bg-primary-500 text-white border-primary-500 shadow-xs'
+                    : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300'
+                }`}
+              >
+                <span>{val.label}</span>
+                {difficulty === key && (
+                  <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <!-- Budget Section -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Budget Range</h4>
+          <div class="grid grid-cols-2 gap-2">
+            {budgetTiers.filter((t) => t.value).map((tier) => (
+              <a
+                href={buildFilterUrl({ max_price: maxPrice === tier.value ? undefined : tier.value })}
+                class={`p-2.5 rounded-xl text-xs font-semibold border text-center transition-all ${
+                  maxPrice === tier.value
+                    ? 'bg-primary-500 text-white border-primary-500 shadow-xs'
+                    : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300'
+                }`}
+              >
+                {tier.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <!-- Season Section -->
+        {allSeasons.length > 0 && (
+          <div>
+            <h4 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Season / Month</h4>
+            <div class="flex flex-wrap gap-2">
+              {allSeasons.slice(0, 8).map((s) => (
+                <a
+                  href={buildFilterUrl({ season: season === s ? undefined : s })}
+                  class={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                    season === s
+                      ? 'bg-primary-500 text-white border-primary-500 shadow-xs'
+                      : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  {s}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <!-- Region Section -->
+        {derivedRegions.length > 0 && (
+          <div>
+            <h4 class="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-3">Region</h4>
+            <div class="flex flex-wrap gap-2">
+              {derivedRegions.map((r) => (
+                <a
+                  href={buildFilterUrl({ location: location === r.slug ? undefined : r.slug })}
+                  class={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                    location === r.slug
+                      ? 'bg-primary-500 text-white border-primary-500 shadow-xs'
+                      : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  {r.name}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <!-- Drawer Footer Actions -->
+      <div class="p-4 border-t border-neutral-200 bg-neutral-50 flex items-center gap-3">
+        <a
+          href="/treks"
+          class="flex-1 py-3 px-4 rounded-xl border border-neutral-300 bg-white text-center text-xs sm:text-sm font-semibold text-neutral-700 hover:bg-neutral-100 transition-colors min-h-[44px] flex items-center justify-center"
+        >
+          Reset All
+        </a>
+        <button
+          id="mobile-filter-apply"
+          type="button"
+          class="flex-1 py-3 px-4 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-center text-xs sm:text-sm font-semibold transition-colors shadow-md min-h-[44px] flex items-center justify-center"
+        >
+          View ({totalItems})
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Filter Drawer JavaScript Controller -->
+  <script>
+    function setupFilterDrawer() {
+      const openBtn = document.getElementById('mobile-filter-open');
+      const closeBtn = document.getElementById('mobile-filter-close');
+      const applyBtn = document.getElementById('mobile-filter-apply');
+      const backdrop = document.getElementById('mobile-filter-backdrop');
+      const drawer = document.getElementById('mobile-filter-drawer');
+      const panel = document.getElementById('mobile-filter-panel');
+
+      if (!openBtn || !drawer || !panel || !backdrop) return;
+
+      const d = drawer;
+      const p = panel;
+      const b = backdrop;
+
+      function openDrawer() {
+        d.classList.remove('invisible', 'pointer-events-none');
+        d.classList.add('opacity-100');
+        b.classList.remove('opacity-0');
+        b.classList.add('opacity-100');
+        p.classList.remove('translate-x-full');
+        p.classList.add('translate-x-0');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeDrawer() {
+        p.classList.remove('translate-x-0');
+        p.classList.add('translate-x-full');
+        b.classList.remove('opacity-100');
+        b.classList.add('opacity-0');
+        d.classList.remove('opacity-100');
+        d.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+          d.classList.add('invisible');
+          document.body.style.overflow = '';
+        }, 300);
+      }
+
+      openBtn.addEventListener('click', openDrawer);
+      closeBtn?.addEventListener('click', closeDrawer);
+      b.addEventListener('click', closeDrawer);
+      applyBtn?.addEventListener('click', closeDrawer);
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeDrawer();
+      });
+    }
+
+    setupFilterDrawer();
+    document.addEventListener('astro:page-load', setupFilterDrawer);
+  </script>
 </MainLayout>
