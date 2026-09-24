@@ -67,7 +67,11 @@ export function BlogPostForm({ post, onSubmit, isLoading }: BlogPostFormProps) {
       meta_title: post?.metaTitle || "",
       meta_description: post?.metaDescription || "",
       meta_keywords: post?.metaKeywords?.join(", ") || "",
-      author_id: post?.author?.id || 1,
+      structured_data: post?.structuredData
+        ? JSON.stringify(post.structuredData, null, 2)
+        : "",
+      // Never hardcode an author id — edit uses the post author; create waits for the authors list
+      author_id: post?.author?.id,
       tag_ids: post?.tagsList?.map((t) => t.id) || [],
     },
   });
@@ -103,9 +107,12 @@ export function BlogPostForm({ post, onSubmit, isLoading }: BlogPostFormProps) {
         setTags(tagsList);
         setAuthors(authorsList);
 
-        // Set default author if not set
-        if (!post && authorsList.length > 0) {
-          setValue("author_id", authorsList[0].id);
+        // Re-apply after options mount so the <select> keeps the intended author
+        // (empty options on first paint can otherwise snap to the first item).
+        if (post?.author?.id) {
+          setValue("author_id", post.author.id, { shouldValidate: false, shouldDirty: false });
+        } else if (!post && authorsList.length > 0) {
+          setValue("author_id", authorsList[0].id, { shouldValidate: false, shouldDirty: false });
         }
       } catch (error) {
         console.error("Failed to load form data:", error);
@@ -267,14 +274,36 @@ export function BlogPostForm({ post, onSubmit, isLoading }: BlogPostFormProps) {
                 </Select>
               </FormField>
 
-              <FormField label="Author" required>
-                <Select {...register("author_id", { valueAsNumber: true })}>
-                  {authors.map((author) => (
-                    <option key={author.id} value={author.id}>
-                      {author.name}
-                    </option>
-                  ))}
-                </Select>
+              <FormField label="Author" error={errors.author_id?.message} required>
+                <Controller
+                  name="author_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      error={!!errors.author_id}
+                      value={
+                        field.value != null && !Number.isNaN(field.value)
+                          ? String(field.value)
+                          : ""
+                      }
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        field.onChange(value ? Number(value) : undefined);
+                      }}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    >
+                      <option value="">Select an author</option>
+                      {authors.map((author) => (
+                        <option key={author.id} value={author.id}>
+                          {author.name}
+                          {author.role ? ` · ${author.role}` : ""}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </FormField>
 
               <div className="flex items-center justify-between">
@@ -394,6 +423,23 @@ export function BlogPostForm({ post, onSubmit, isLoading }: BlogPostFormProps) {
                 <Input
                   placeholder="trekking, himalayas, adventure, travel"
                   {...register("meta_keywords")}
+                />
+              </FormField>
+
+              <FormField
+                label="Structured Data (JSON-LD)"
+                error={errors.structured_data?.message}
+                hint="Optional. Paste a JSON-LD object or array for this article. Leave blank to skip."
+              >
+                <Textarea
+                  placeholder={`{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Your article title"
+}`}
+                  rows={10}
+                  className="font-mono text-sm"
+                  {...register("structured_data")}
                 />
               </FormField>
             </CardContent>

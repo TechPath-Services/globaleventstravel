@@ -2,7 +2,7 @@
 Blog Pydantic schemas for request/response validation.
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -136,6 +136,27 @@ class BlogAuthorResponse(BlogAuthorBase):
 # Blog Post Schemas
 # ============================================
 
+def resolve_blog_publish_date(obj) -> Optional[str]:
+    """Prefer stored publish_date; fall back for published posts missing it."""
+    if getattr(obj, "publish_date", None):
+        return obj.publish_date
+    published_at = getattr(obj, "published_at", None)
+    if published_at:
+        return published_at.strftime("%Y-%m-%d")
+    if getattr(obj, "status", None) == "published" and getattr(obj, "created_at", None):
+        return obj.created_at.strftime("%Y-%m-%d")
+    return None
+
+
+def resolve_blog_published_at(obj) -> Optional[datetime]:
+    """Prefer stored published_at; fall back for published posts missing it."""
+    if getattr(obj, "published_at", None):
+        return obj.published_at
+    if getattr(obj, "status", None) == "published":
+        return getattr(obj, "created_at", None)
+    return None
+
+
 class BlogPostBase(BaseModel):
     """Base schema for blog post."""
     title: str = Field(..., min_length=2, max_length=255)
@@ -157,6 +178,11 @@ class BlogPostBase(BaseModel):
     meta_title: Optional[str] = Field(None, max_length=70, alias="metaTitle")
     meta_description: Optional[str] = Field(None, alias="metaDescription")
     meta_keywords: Optional[List[str]] = Field(None, alias="metaKeywords")
+    structured_data: Optional[Any] = Field(
+        None,
+        alias="structuredData",
+        description="Optional JSON-LD object or array for the article page",
+    )
 
     class Config:
         populate_by_name = True
@@ -188,6 +214,7 @@ class BlogPostUpdate(BaseModel):
     meta_title: Optional[str] = Field(None, max_length=70, alias="metaTitle")
     meta_description: Optional[str] = Field(None, alias="metaDescription")
     meta_keywords: Optional[List[str]] = Field(None, alias="metaKeywords")
+    structured_data: Optional[Any] = Field(None, alias="structuredData")
     author_id: Optional[int] = None
 
     class Config:
@@ -218,6 +245,7 @@ class BlogPostResponse(BaseModel):
     metaTitle: Optional[str] = None
     metaDescription: Optional[str] = None
     metaKeywords: Optional[List[str]] = None
+    structuredData: Optional[Any] = None
     createdAt: datetime
     updatedAt: datetime
 
@@ -236,9 +264,9 @@ class BlogPostResponse(BaseModel):
             contentType=obj.content_type,
             status=obj.status,
             author=BlogAuthorResponse.model_validate(obj.author),
-            publishDate=obj.publish_date,
+            publishDate=resolve_blog_publish_date(obj),
             updatedDate=obj.updated_date,
-            publishedAt=obj.published_at,
+            publishedAt=resolve_blog_published_at(obj),
             featuredImage=obj.featured_image,
             category=obj.category,
             categoryId=obj.category_id,
@@ -250,6 +278,7 @@ class BlogPostResponse(BaseModel):
             metaTitle=obj.meta_title,
             metaDescription=obj.meta_description,
             metaKeywords=obj.meta_keywords,
+            structuredData=getattr(obj, "structured_data", None),
             createdAt=obj.created_at,
             updatedAt=obj.updated_at,
         )
@@ -285,7 +314,7 @@ class BlogPostListResponse(BaseModel):
             slug=obj.slug,
             excerpt=obj.excerpt,
             author=BlogAuthorResponse.model_validate(obj.author),
-            publishDate=obj.publish_date,
+            publishDate=resolve_blog_publish_date(obj),
             featuredImage=obj.featured_image,
             category=obj.category,
             categoryName=obj.category_rel.name if obj.category_rel else None,

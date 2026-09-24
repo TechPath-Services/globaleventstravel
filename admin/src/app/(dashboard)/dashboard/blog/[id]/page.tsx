@@ -56,6 +56,9 @@ export default function EditBlogPostPage() {
         meta_title: data.meta_title || undefined,
         meta_description: data.meta_description || undefined,
         meta_keywords: metaKeywords,
+        structured_data: data.structured_data?.trim()
+          ? JSON.parse(data.structured_data)
+          : null,
         author_id: data.author_id,
         tag_ids: data.tag_ids,
         read_time: data.reading_time,

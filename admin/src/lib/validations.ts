@@ -38,9 +38,27 @@ export const blogPostSchema = z.object({
     .optional()
     .or(z.literal("")),
   meta_keywords: z.string().optional().or(z.literal("")),
-  published_at: z.string().optional().or(z.literal("")),
+  structured_data: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .refine(
+      (value) => {
+        if (!value || !value.trim()) return true;
+        try {
+          const parsed = JSON.parse(value);
+          return parsed !== null && typeof parsed === "object";
+        } catch {
+          return false;
+        }
+      },
+      { message: "Structured data must be valid JSON (object or array)" }
+    ),
   tag_ids: z.array(z.number()).optional(),
-  author_id: z.number({ message: "Author is required" }),
+  author_id: z.coerce
+    .number({ message: "Author is required" })
+    .int()
+    .positive("Author is required"),
 });
 
 export type BlogPostFormData = z.infer<typeof blogPostSchema>;

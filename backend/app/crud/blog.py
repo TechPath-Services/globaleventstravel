@@ -1,6 +1,7 @@
 """
 CRUD operations for Blog models.
 """
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
@@ -12,6 +13,41 @@ from app.models.blog import (
     BlogCategoryCreate, BlogCategoryUpdate,
     BlogTagCreate, BlogTagUpdate
 )
+
+
+def _status_value(status: Any) -> Optional[str]:
+    if status is None:
+        return None
+    return status.value if hasattr(status, "value") else str(status)
+
+
+def ensure_blog_publish_timestamps(
+    data: Dict[str, Any],
+    *,
+    existing: Optional[BlogPost] = None,
+) -> Dict[str, Any]:
+    """
+    When a post is (or stays) published, fill publish_date / published_at if missing.
+    Admin currently does not send these fields.
+    """
+    status = _status_value(data.get("status"))
+    if status is None and existing is not None:
+        status = _status_value(existing.status)
+    if status != "published":
+        return data
+
+    now = datetime.utcnow()
+    date_str = now.strftime("%Y-%m-%d")
+
+    incoming_date = data.get("publish_date")
+    if incoming_date in (None, "") and (existing is None or not existing.publish_date):
+        data["publish_date"] = date_str
+
+    incoming_at = data.get("published_at")
+    if incoming_at is None and (existing is None or not existing.published_at):
+        data["published_at"] = now
+
+    return data
 
 
 class CRUDBlogAuthor(CRUDBase[BlogAuthor, BlogAuthorCreate, BlogAuthorUpdate]):
@@ -269,6 +305,7 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
             "metaDescription": "meta_description",
             "metaKeywords": "meta_keywords",
             "contentType": "content_type",
+            "structuredData": "structured_data",
         }
         
         for alias, db_field in field_mapping.items():
@@ -280,7 +317,9 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
             obj_in_data["content_type"] = obj_in_data["content_type"].value
         if "status" in obj_in_data and hasattr(obj_in_data["status"], "value"):
             obj_in_data["status"] = obj_in_data["status"].value
-        
+
+        obj_in_data = ensure_blog_publish_timestamps(obj_in_data)
+
         db_obj = BlogPost(**obj_in_data)
         
         # Add tags
@@ -314,6 +353,7 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
             "metaDescription": "meta_description",
             "metaKeywords": "meta_keywords",
             "contentType": "content_type",
+            "structuredData": "structured_data",
         }
         
         for alias, db_field in field_mapping.items():
@@ -325,7 +365,9 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
             update_data["content_type"] = update_data["content_type"].value
         if "status" in update_data and hasattr(update_data["status"], "value"):
             update_data["status"] = update_data["status"].value
-        
+
+        update_data = ensure_blog_publish_timestamps(update_data, existing=db_obj)
+
         for field, value in update_data.items():
             setattr(db_obj, field, value)
         
