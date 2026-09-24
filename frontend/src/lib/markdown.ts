@@ -139,7 +139,9 @@ export function renderContent(
   // If explicitly HTML, or if it contains block-level HTML tags, treat as HTML.
   // Otherwise, default to Markdown to properly handle raw text, newlines, and markdown syntax.
   const hasHtmlBlocks = /<(?:p|h[1-6]|div|ul|ol|table|blockquote|pre)\b/i.test(content);
-  const shouldRenderMarkdown = contentType === 'markdown' || (contentType !== 'html' && !hasHtmlBlocks);
+  const isLikelyMd = !hasHtmlBlocks && /^(?: {0,3}#{1,6}\s| {0,3}(?:[-+*]|\d+\.)\s| {0,3}>\s| {0,3}```|\|)/m.test(content);
+  
+  const shouldRenderMarkdown = contentType === 'markdown' || isLikelyMd || (contentType !== 'html' && !hasHtmlBlocks);
 
   return shouldRenderMarkdown ? renderMarkdown(content) : renderHtml(content);
 }
