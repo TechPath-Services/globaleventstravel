@@ -45,8 +45,9 @@ const readTime = post.readTime || post.read_time || 5;
 const tags = post.tags || [];
 const content = post.content || '';
 
-const contentType: 'html' | 'markdown' =
-  (post.contentType || post.content_type) === 'markdown' ? 'markdown' : 'html';
+const rawContentType = post.contentType || post.content_type;
+const contentType: 'html' | 'markdown' | undefined =
+  rawContentType === 'markdown' ? 'markdown' : (rawContentType === 'html' ? 'html' : undefined);
 const renderedContent = renderContent(content, contentType);
 ---
 
