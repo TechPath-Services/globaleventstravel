@@ -39,7 +39,51 @@ function decodeHtmlEntities(value: string): string {
     );
 }
 
+function fixMarkdownTables(content: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let inTable = false;
+  let tableHeaderProcessed = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const isTableRow = line.startsWith('|') && line.endsWith('|');
+
+    if (isTableRow) {
+      if (!inTable) {
+        inTable = true;
+        tableHeaderProcessed = false;
+        result.push(lines[i]); 
+      } else {
+        if (!tableHeaderProcessed) {
+          const isDelimiter = /^\|\s*[-:]+\s*(?:\|\s*[-:]+\s*)*\|$/.test(line);
+          if (!isDelimiter) {
+            const prevCols = result[result.length - 1].split('|').length - 2;
+            const delimiter = '|' + Array(Math.max(1, prevCols)).fill('---').join('|') + '|';
+            result.push(delimiter);
+          } else {
+            tableHeaderProcessed = true;
+            result.push(lines[i]);
+            continue;
+          }
+          tableHeaderProcessed = true;
+        }
+        result.push(lines[i]);
+      }
+    } else {
+      if (inTable && line === '') {
+        continue; // skip empty lines inside table
+      }
+      inTable = false;
+      result.push(lines[i]);
+    }
+  }
+
+  return result.join('\n');
+}
+
 function renderMarkdown(content: string): RenderedBlogContent {
+  const processedContent = fixMarkdownTables(content);
   const headings: ContentHeading[] = [];
   const markdown = new MarkdownIt({
     breaks: true,
@@ -64,7 +108,7 @@ function renderMarkdown(content: string): RenderedBlogContent {
   };
 
   return {
-    html: markdown.render(content),
+    html: markdown.render(processedContent),
     headings,
   };
 }
