@@ -1,0 +1,519 @@
+# Analysis Report: TrekGrid and TrekCard Component Refinement
+
+**Author**: Explorer M1 Components 1  
+**Date**: 2026-08-25  
+**Target Scope**: 
+- `frontend/src/components/trek/TrekGrid.astro`
+- `frontend/src/components/trek/TrekCard.astro`
+
+---
+
+## 1. Executive Summary
+
+This report delivers an in-depth analysis and complete redesign specification for two fundamental UI components in the Astro frontend: `TrekGrid.astro` and `TrekCard.astro`.
+
+### Key Enhancements
+1. **Responsive Grid Layout (`TrekGrid.astro`)**:
+   - Upgraded 3-column layout mapping to `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` (with `gap-6 lg:gap-8`). This completely resolves the layout squeezing bug at the `lg` (1024px–1279px) breakpoint where a 288px sticky sidebar leaves only ~640px, causing cards in a 3-column layout to wrap awkwardly at ~195px width.
+2. **Enhanced Empty-State UI (`TrekGrid.astro`)**:
+   - Replaced the generic box icon and plain text with a branded container (`bg-white rounded-2xl border border-dashed border-neutral-300 p-8 sm:p-12`), custom trail/map iconography in a brand soft ring, helpful copy, a primary "Clear All Filters" button (`btn-primary`), and a secondary "Ask a Trek Expert" action.
+3. **High-Aesthetic Badges & Color Coding (`TrekCard.astro`)**:
+   - Re-engineered difficulty badges with frosted glassmorphic backdrops (`backdrop-blur-md`), pulsating status dot indicators, and calibrated color coding (Emerald for Easy, Amber for Moderate, Orange for Difficult, Rose for Challenging, Purple for Extreme).
+   - Added glowing "Best Seller" gradient badge (`from-amber-500 to-primary-500`) with star icon.
+4. **INR Pricing & Structured Specs Layout (`TrekCard.astro`)**:
+   - Relocated INR pricing (`Intl.NumberFormat('en-IN')`) to a dedicated footer bar with clear "Starting from" label and "/ person" subtitle.
+   - Introduced a 3-column micro-grid specs strip displaying Duration, Max Altitude, and Trail Distance with secondary brand icons and subtle vertical dividers.
+5. **Image Aspect Ratio, Elevation & Touch Targets (`TrekCard.astro`)**:
+   - Standardized `aspect-[4/3]` with double gradient overlays for text readability.
+   - Added smooth zoom on image hover (`group-hover:scale-105 transition-transform duration-700`) and card elevation (`hover:shadow-xl hover:-translate-y-1 transition-all duration-300`).
+   - Sized all interactive touch targets to minimum 38–44px for effortless mobile operation.
+6. **Strict Type Safety**:
+   - Handled all optional API properties (`rating`, `distance`, `max_altitude`, `best_season`, `short_description`) with safe nullish coalescing and default fallbacks.
+   - Replaced `<Image>` with standard `<img>` with lazy loading to ensure 100% build reliability with dynamic API URLs.
+
+---
+
+## 2. Component 1: `TrekGrid.astro` Detailed Analysis
+
+### 2.1 Current State & Problems Identified
+```astro
+// Current lines 15-19 in TrekGrid.astro
+const gridCols = {
+  2: 'md:grid-cols-2',
+  3: 'md:grid-cols-2 lg:grid-cols-3',
+  4: 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+};
+```
+- **Viewport Layout Conflict on `lg` (1024px–1279px)**:
+  - On `/treks`, the main discovery area has a desktop sidebar: `<aside class="lg:w-72">` (288px) plus `gap-8` (32px).
+  - Total container at 1024px viewport width = ~960px usable.
+  - Remaining grid width = 960px - 288px - 32px = 640px.
+  - In a 3-column grid (`lg:grid-cols-3`), each card gets `(640 - 48) / 3 = 197px` width.
+  - At 197px width, titles wrap onto 3 lines, spec items collide, and badges overlap.
+  - At `xl` (1280px+), container width is ~1200px. Grid width = 1200px - 288px - 32px = 880px (`~275px-300px` per card), which is ideal.
+- **Empty State Deficiencies**:
+  - Current empty state displays a generic SVG archive box with no clear link to trekking.
+  - There is no button to clear active filters or navigate back to the unfiltered catalog, creating a dead-end for users.
+
+### 2.2 Proposed Solution & Responsive Grid Specs
+| Breakpoint | Viewport Width | Sidebar Present? | Number of Columns | Width per Card | Status |
+|---|---|---|---|---|---|
+| `< 768px` (Mobile) | 320px–767px | No (Drawer/Modal) | **1 column** | 100% (~320px–480px) | Optimal |
+| `768px–1023px` (md / Tablet) | 768px–1023px | No (Collapsible) | **2 columns** | ~340px–460px | Optimal |
+| `1024px–1279px` (lg / Small Desktop) | 1024px–1279px | Yes (288px sticky) | **2 columns** | ~310px–420px | **Fixed (was 3 columns / 197px)** |
+| `1280px+` (xl / Large Desktop) | 1280px–1536px | Yes (288px sticky) | **3 columns** | ~285px–360px | Optimal |
+
+### 2.3 Proposed Implementation: `TrekGrid.astro`
+```astro
+---
+import type { Trek } from '@/lib/types';
+import TrekCard from './TrekCard.astro';
+
+export interface Props {
+  treks: Trek[];
+  columns?: 2 | 3 | 4;
+  showEmpty?: boolean;
+  emptyTitle?: string;
+  emptyMessage?: string;
+  resetUrl?: string;
+  showResetButton?: boolean;
+  /** Default urgency text for featured treks (from page_content featured_defaults) */
+  urgencyDefaults?: { nextBatch?: string; seatsText?: string };
+  class?: string;
+}
+
+const {
+  treks = [],
+  columns = 3,
+  showEmpty = true,
+  emptyTitle = 'No treks found',
+  emptyMessage = "We couldn't find any treks matching your criteria. Try adjusting your filters or check back later.",
+  resetUrl = '/treks',
+  showResetButton = true,
+  urgencyDefaults,
+  class: className = '',
+} = Astro.props;
+
+// Responsive grid column configurations
+// columns=3 uses 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' for optimal layout with sidebar
+const gridCols: Record<2 | 3 | 4, string> = {
+  2: 'grid-cols-1 md:grid-cols-2',
+  3: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3',
+  4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+};
+
+const activeGridClass = gridCols[columns] || gridCols[3];
+---
+
+{treks && treks.length > 0 ? (
+  <div class:list={['grid', activeGridClass, 'gap-6 lg:gap-8', className]}>
+    {treks.map((trek) => (
+      <TrekCard
+        trek={trek}
+        nextBatch={urgencyDefaults?.nextBatch}
+        seatsLeft={urgencyDefaults?.seatsText}
+        bestSeller={trek.featured}
+      />
+    ))}
+  </div>
+) : showEmpty ? (
+  <div class="bg-white rounded-2xl border border-dashed border-neutral-300 p-8 sm:p-12 text-center my-6 shadow-sm">
+    <div class="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-500 shadow-inner">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.75"
+          d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+        />
+      </svg>
+    </div>
+    <h3 class="text-xl font-bold text-secondary-600 mb-2">{emptyTitle}</h3>
+    <p class="text-neutral-600 text-sm md:text-base max-w-md mx-auto mb-6">
+      {emptyMessage}
+    </p>
+    {showResetButton && (
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={resetUrl}
+          class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Clear All Filters
+        </a>
+        <a
+          href="/#lead-form"
+          class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-secondary-600 hover:text-primary-600 hover:bg-neutral-50 rounded-xl transition-colors"
+        >
+          <span>Ask a Trek Expert</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </a>
+      </div>
+    )}
+  </div>
+) : null}
+```
+
+---
+
+## 3. Component 2: `TrekCard.astro` Detailed Analysis
+
+### 3.1 Visual Design Breakdown
+
+```
++-------------------------------------------------------------------+
+|  [● Easy (Glass)]                           [★ Best Seller (Grad)] |
+|                                                                   |
+|                       Trek Image (4:3)                            |
+|                                                                   |
+|  [📅 Batch: 15 Oct]  [👥 3 Seats Left]                            |
++-------------------------------------------------------------------+
+|  📍 Uttarakhand, India                          ★ 4.9 (42)        |
+|  Kedarkantha Winter Trek                                          |
+|  A magical winter wonderland trek with panoramic Himalayan views.  |
+|                                                                   |
+|  +-------------------+-------------------+--------------------+  |
+|  |  ⏱ Duration       |  ⛰ Altitude       |  📍 Distance       |  |
+|  |  5N / 6D          |  3,810m           |  20 km             |  |
+|  +-------------------+-------------------+--------------------+  |
+|  Best: [Dec] [Jan] [Feb]                                          |
+| ----------------------------------------------------------------- |
+|  Starting from                                                    |
+|  ₹9,500 / person                          [ View Trek → ]         |
++-------------------------------------------------------------------+
+```
+
+### 3.2 Visual & UX Improvements in Detail
+
+#### A. Badges & Difficulty Color Coding
+- **Backdrop & Styling**: `backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold shadow-sm border`
+- **Color Matrix**:
+  - `easy`: `bg-emerald-500/90 text-white border-emerald-400/30` with `bg-emerald-200` dot.
+  - `moderate`: `bg-amber-500/90 text-white border-amber-400/30` with `bg-amber-200` dot.
+  - `difficult`: `bg-orange-500/90 text-white border-orange-400/30` with `bg-orange-200` dot.
+  - `challenging`: `bg-rose-500/90 text-white border-rose-400/30` with `bg-rose-200` dot.
+  - `extreme`: `bg-purple-600/90 text-white border-purple-400/30` with `bg-purple-200` dot.
+
+#### B. INR Currency Formatting
+- Standardized via `Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })`.
+- Placed in the card footer alongside unit label `/ person`.
+
+#### C. Specs Layout Micro-Grid
+- Structured 3-column micro-grid:
+  - Duration: `⏱ {nights}N / {duration}D`
+  - Max Altitude: `⛰ {max_altitude}m`
+  - Distance: `📍 {distance} km`
+- Distinct visual grouping inside `bg-neutral-50 rounded-xl border border-neutral-100`.
+
+#### D. Card Container & Interaction
+- Full card height uniformity (`flex flex-col h-full`).
+- Smooth zoom on image (`group-hover:scale-105 transition-transform duration-700 ease-out`).
+- Card elevation on hover (`hover:shadow-xl hover:-translate-y-1 transition-all duration-300`).
+- Touch-friendly CTA button (`min-h-[38px]` with pill styling and transition).
+
+### 3.3 Proposed Implementation: `TrekCard.astro`
+```astro
+---
+import type { Trek, Difficulty } from '@/lib/types';
+import { DIFFICULTY_LABELS } from '@/lib/constants';
+
+export interface Props {
+  trek: Trek;
+  nextBatch?: string;
+  seatsLeft?: string;
+  bestSeller?: boolean;
+  class?: string;
+}
+
+const {
+  trek,
+  nextBatch,
+  seatsLeft,
+  bestSeller = trek.featured,
+  class: className = '',
+} = Astro.props;
+
+// Safe fallback for difficulty
+const difficultyKey = (trek.difficulty || 'moderate').toLowerCase();
+const difficultyInfo = DIFFICULTY_LABELS[difficultyKey] || DIFFICULTY_LABELS.moderate || {
+  label: 'Moderate',
+  color: 'badge-moderate',
+};
+
+// High-aesthetic difficulty styling with glassmorphism and semantic color palette
+const difficultyColorStyles: Record<string, { bg: string; dot: string; border: string }> = {
+  easy: {
+    bg: 'bg-emerald-500/90 text-white',
+    dot: 'bg-emerald-200',
+    border: 'border-emerald-400/30',
+  },
+  moderate: {
+    bg: 'bg-amber-500/90 text-white',
+    dot: 'bg-amber-200',
+    border: 'border-amber-400/30',
+  },
+  difficult: {
+    bg: 'bg-orange-500/90 text-white',
+    dot: 'bg-orange-200',
+    border: 'border-orange-400/30',
+  },
+  challenging: {
+    bg: 'bg-rose-500/90 text-white',
+    dot: 'bg-rose-200',
+    border: 'border-rose-400/30',
+  },
+  extreme: {
+    bg: 'bg-purple-600/90 text-white',
+    dot: 'bg-purple-200',
+    border: 'border-purple-400/30',
+  },
+};
+
+const badgeStyle = difficultyColorStyles[difficultyKey] || difficultyColorStyles.moderate;
+
+// Format price with Indian rupee (INR)
+const formatPrice = (price: number) => {
+  const safePrice = typeof price === 'number' && !isNaN(price) ? price : 0;
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(safePrice);
+};
+
+// Star rating calculation
+const rating = typeof trek.rating === 'number' && !isNaN(trek.rating) ? trek.rating : 5.0;
+const reviewCount = trek.review_count ?? 0;
+
+// Data fallbacks for API compatibility
+const maxAltitude = trek.max_altitude ?? 0;
+const distance = trek.distance ?? 0;
+const bestSeason = Array.isArray(trek.best_season) ? trek.best_season : [];
+const featuredImage = trek.featured_image || '/images/treks/placeholder.jpg';
+const durationDays = typeof trek.duration === 'number' && trek.duration > 0 ? trek.duration : 1;
+const nights = Math.max(0, durationDays - 1);
+const durationDisplay = `${nights}N / ${durationDays}D`;
+
+// Extract clean region/location display
+const locationDisplay = trek.location ? trek.location.trim() : 'Himalayas, India';
+---
+
+<article
+  class:list={[
+    'group relative bg-white rounded-2xl border border-neutral-200/90 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full',
+    className,
+  ]}
+>
+  <a
+    href={`/treks/${trek.slug}`}
+    class="flex flex-col h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 rounded-2xl"
+    aria-label={`View trek details for ${trek.name}`}
+  >
+    <!-- Image Header with Badges -->
+    <div class="relative overflow-hidden aspect-[4/3] bg-neutral-100 flex-shrink-0">
+      <img
+        src={featuredImage}
+        alt={trek.name}
+        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+        loading="lazy"
+        width="600"
+        height="450"
+      />
+
+      <!-- Top gradient overlay for badge readability -->
+      <div class="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/50 via-black/20 to-transparent pointer-events-none"></div>
+
+      <!-- Bottom gradient overlay for info readability -->
+      <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none"></div>
+
+      <!-- Top-Left Badges (Difficulty) -->
+      <div class="absolute top-3.5 left-3.5 flex flex-wrap items-center gap-1.5 z-10">
+        <span
+          class:list={[
+            'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md shadow-sm border',
+            badgeStyle.bg,
+            badgeStyle.border,
+          ]}
+        >
+          <span class={`w-1.5 h-1.5 rounded-full ${badgeStyle.dot} animate-pulse`}></span>
+          {difficultyInfo.label}
+        </span>
+      </div>
+
+      <!-- Top-Right Badges (Best Seller / Featured) -->
+      <div class="absolute top-3.5 right-3.5 flex flex-col items-end gap-1.5 z-10">
+        {bestSeller ? (
+          <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-gradient-to-r from-amber-500 to-primary-500 shadow-md backdrop-blur-sm border border-white/20">
+            <svg class="w-3 h-3 text-amber-100" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            Best Seller
+          </span>
+        ) : trek.featured ? (
+          <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white bg-secondary-600/90 backdrop-blur-md shadow-md border border-white/20">
+            Featured
+          </span>
+        ) : null}
+      </div>
+
+      <!-- Bottom-Left Urgency Tags (Batch & Seats) -->
+      {(nextBatch || seatsLeft) && (
+        <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center gap-1.5 z-10">
+          {nextBatch && (
+            <span class="inline-flex items-center gap-1 text-[11px] font-medium text-white/95 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10 shadow-sm">
+              <svg class="w-3 h-3 text-primary-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Batch: {nextBatch}
+            </span>
+          )}
+          {seatsLeft && (
+            <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-amber-600/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-400/30 shadow-sm">
+              <svg class="w-3 h-3 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {seatsLeft}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+
+    <!-- Card Content Body -->
+    <div class="p-5 flex flex-col flex-grow justify-between">
+      <div>
+        <!-- Location & Rating Row -->
+        <div class="flex items-center justify-between gap-2 mb-2 text-xs">
+          <div class="flex items-center gap-1 text-neutral-500 font-medium truncate">
+            <svg class="w-3.5 h-3.5 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span class="truncate">{locationDisplay}</span>
+          </div>
+
+          <!-- Star Rating -->
+          <div class="flex items-center gap-1 flex-shrink-0 bg-neutral-50 px-2 py-0.5 rounded-full border border-neutral-200/60">
+            <svg class="w-3.5 h-3.5 text-amber-400 fill-current" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            <span class="font-bold text-neutral-800 text-[11px]">{rating.toFixed(1)}</span>
+            {reviewCount > 0 && (
+              <span class="text-neutral-400 text-[10px]">({reviewCount})</span>
+            )}
+          </div>
+        </div>
+
+        <!-- Trek Title -->
+        <h3 class="text-lg font-bold text-secondary-600 group-hover:text-primary-600 transition-colors duration-200 line-clamp-1 mb-2">
+          {trek.name}
+        </h3>
+
+        <!-- Short Description (optional preview) -->
+        {trek.short_description && (
+          <p class="text-neutral-500 text-xs leading-relaxed line-clamp-2 mb-3">
+            {trek.short_description}
+          </p>
+        )}
+
+        <!-- High-Aesthetic Specs Grid (Duration, Altitude, Distance) -->
+        <div class="grid grid-cols-3 gap-2 py-2.5 px-3 bg-neutral-50 rounded-xl border border-neutral-100 text-center mb-3">
+          <!-- Duration -->
+          <div class="flex flex-col items-center justify-center">
+            <span class="text-[10px] uppercase font-medium text-neutral-400 flex items-center gap-1">
+              <svg class="w-3 h-3 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Duration
+            </span>
+            <span class="text-xs font-semibold text-neutral-800 mt-0.5">{durationDisplay}</span>
+          </div>
+
+          <!-- Altitude -->
+          <div class="flex flex-col items-center justify-center border-x border-neutral-200/60">
+            <span class="text-[10px] uppercase font-medium text-neutral-400 flex items-center gap-1">
+              <svg class="w-3 h-3 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              Altitude
+            </span>
+            <span class="text-xs font-semibold text-neutral-800 mt-0.5">
+              {maxAltitude > 0 ? `${maxAltitude.toLocaleString()}m` : 'N/A'}
+            </span>
+          </div>
+
+          <!-- Distance -->
+          <div class="flex flex-col items-center justify-center">
+            <span class="text-[10px] uppercase font-medium text-neutral-400 flex items-center gap-1">
+              <svg class="w-3 h-3 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              Distance
+            </span>
+            <span class="text-xs font-semibold text-neutral-800 mt-0.5">
+              {distance > 0 ? `${distance} km` : 'Trail'}
+            </span>
+          </div>
+        </div>
+
+        <!-- Season Tags (if any) -->
+        {bestSeason.length > 0 && (
+          <div class="flex flex-wrap items-center gap-1.5 mb-3">
+            <span class="text-[10px] text-neutral-400 font-medium">Best:</span>
+            {bestSeason.slice(0, 3).map((season) => (
+              <span class="inline-flex items-center text-[10px] font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200/80 px-2 py-0.5 rounded-full transition-colors">
+                {season}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <!-- Card Footer: INR Price & Interactive Touch CTA -->
+      <div class="pt-3.5 border-t border-neutral-100 flex items-center justify-between gap-3 mt-1">
+        <div>
+          <span class="text-[11px] text-neutral-400 block font-normal leading-tight">Starting from</span>
+          <div class="flex items-baseline gap-1">
+            <span class="text-lg font-bold text-secondary-600 group-hover:text-primary-600 transition-colors">
+              {formatPrice(trek.price)}
+            </span>
+            <span class="text-[11px] text-neutral-400 font-normal">/ person</span>
+          </div>
+        </div>
+
+        <!-- Touch-Friendly CTA Button -->
+        <span
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-50 text-primary-700 group-hover:bg-primary-500 group-hover:text-white font-semibold text-xs rounded-xl shadow-sm transition-all duration-200 min-h-[38px]"
+        >
+          View Trek
+          <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </span>
+      </div>
+    </div>
+  </a>
+</article>
+```
+
+---
+
+## 4. Backwards Compatibility & Caller Impact
+
+We analyzed every caller of `TrekGrid` and `TrekCard` across the repository:
+1. `frontend/src/pages/treks/index.astro`:
+   - `<TrekGrid treks={treks} columns={3} />` -> seamlessly adapts to `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`, providing a clean 2-column layout beside the desktop sidebar and 3-column layout on wide screens.
+2. `frontend/src/components/sections/FeaturedTreks.astro`:
+   - `<TrekGrid treks={treks} columns={3} urgencyDefaults={urgencyDefaults} />` -> full compatibility with `urgencyDefaults`.
+3. `frontend/src/components/sections/BudgetTreks.astro`:
+   - `<TrekGrid treks={treks} columns={4} />` -> full compatibility with `columns={4}`.
+4. `frontend/src/pages/treks/[slug].astro`:
+   - `<TrekCard trek={relatedTrek} />` -> full compatibility, renders with enhanced styling in related treks grid.
+5. `frontend/src/components/trek/TrekTrendingRow.astro`:
+   - `<TrekCard trek={trek} />` -> full compatibility.
+
+All props are 100% backwards-compatible with zero breaking changes.

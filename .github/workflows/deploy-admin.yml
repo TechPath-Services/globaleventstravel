@@ -54,7 +54,7 @@ on:
 jobs:
   deploy-staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
 
     environment:
@@ -62,108 +62,41 @@ jobs:
       url: https://staging.admin.globaleventstravels.com
 
     env:
-      DEPLOY_PATH: /home/vels-staging-admin/htdocs/staging.admin.globaleventstravels.com
-      SERVICE_NAME: globaleventstravels-staging-admin
-      APP_PORT: 3004
+      DEPLOY_DIR: /home/techpath/Documents/globaleventstravels-admin-staging
+      IMAGE: globaleventstravels-admin-staging
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy files to Staging VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: "admin/"
-          target: ${{ env.DEPLOY_PATH }}
-          strip_components: 1
-          rm: false
+      - name: Prepare Deployment Directory
+        run: mkdir -p "$DEPLOY_DIR"
 
-      - name: Setup and restart staging service
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            set -e
+      - name: Write .env.local for build (NEXT_PUBLIC_* vars inlined at build time)
+        run: |
+          cat > admin/.env.local <<'ENVEOF'
+          ${{ secrets.ENV_FILE_ADMIN }}
+          ENVEOF
 
-            echo "=========================================="
-            echo "Global Events Travels STAGING Admin Deployment"
-            echo "=========================================="
+      - name: Copy docker-compose
+        run: cp admin/docker-compose.staging.yml "$DEPLOY_DIR/docker-compose.yml"
 
-            DEPLOY_DIR="${{ env.DEPLOY_PATH }}"
-            SERVICE_NAME="${{ env.SERVICE_NAME }}"
-            APP_PORT="${{ env.APP_PORT }}"
+      - name: Build Docker Image
+        run: docker build -t "$IMAGE:latest" admin/
 
-            cd "$DEPLOY_DIR"
+      - name: Deploy with Docker Compose
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose up -d --force-recreate
 
-            echo "Writing .env.local file..."
-            cat > .env.local << 'ENVEOF'
-            ${{ secrets.ENV_FILE_ADMIN }}
-            ENVEOF
-            chmod 600 .env.local
-
-            echo "Cleaning previous build..."
-            rm -rf .next 2>/dev/null || true
-
-            echo "Installing dependencies (npm ci)..."
-            npm ci --no-audit --no-fund
-
-            echo "Building Next.js app..."
-            npm run build
-
-            echo "Setting up systemd service..."
-            cat > /etc/systemd/system/${SERVICE_NAME}.service << SERVICEEOF
-            [Unit]
-            Description=Global Events Travels Staging Admin Service
-            After=network.target
-
-            [Service]
-            Type=simple
-            User=root
-            WorkingDirectory=${DEPLOY_DIR}
-            Environment="NODE_ENV=production"
-            Environment="PORT=${APP_PORT}"
-            Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-            ExecStart=$(which node) node_modules/.bin/next start -p ${APP_PORT}
-            Restart=always
-            RestartSec=10
-
-            [Install]
-            WantedBy=multi-user.target
-            SERVICEEOF
-
-            echo "Restarting service..."
-            systemctl daemon-reload
-            systemctl enable ${SERVICE_NAME}.service 2>/dev/null || true
-
-            PID=$(lsof -t -i:${APP_PORT} 2>/dev/null) || true
-            if [ -n "$PID" ]; then
-                kill -9 $PID 2>/dev/null || true
-                sleep 2
-            fi
-
-            systemctl restart ${SERVICE_NAME}.service
-            sleep 5
-
-            echo "Health check..."
-            if systemctl is-active --quiet ${SERVICE_NAME}.service; then
-                echo "Staging admin service is running on port ${APP_PORT}!"
-            else
-                echo "Service failed!"
-                journalctl -u ${SERVICE_NAME}.service --no-pager -n 30
-                exit 1
-            fi
-
-            echo "=========================================="
-            echo "STAGING deployment complete!"
-            echo "   URL: https://staging.admin.globaleventstravels.com"
-            echo "=========================================="
+      - name: Health check
+        run: |
+          sleep 5
+          docker inspect --format='{{.State.Status}}' globaleventstravels-admin-staging | grep -q running
+          echo "=========================================="
+          echo "STAGING Admin deployment complete!"
+          echo "   URL: https://staging.admin.globaleventstravels.com"
+          echo "=========================================="
 
 # =============================================================================
 # PRODUCTION DEPLOYMENT

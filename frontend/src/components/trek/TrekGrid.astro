@@ -2,25 +2,44 @@
 import type { Trek } from '@/lib/types';
 import TrekCard from './TrekCard.astro';
 
-interface Props {
+export interface Props {
   treks: Trek[];
   columns?: 2 | 3 | 4;
   showEmpty?: boolean;
+  emptyTitle?: string;
+  emptyMessage?: string;
+  resetUrl?: string;
+  showResetButton?: boolean;
   /** Default urgency text for featured treks (from page_content featured_defaults) */
   urgencyDefaults?: { nextBatch?: string; seatsText?: string };
+  class?: string;
 }
 
-const { treks, columns = 3, showEmpty = true, urgencyDefaults } = Astro.props;
+const {
+  treks = [],
+  columns = 3,
+  showEmpty = true,
+  emptyTitle = 'No treks found',
+  emptyMessage = "We couldn't find any treks matching your criteria. Try adjusting your filters or check back later.",
+  resetUrl = '/treks',
+  showResetButton = true,
+  urgencyDefaults,
+  class: className = '',
+} = Astro.props;
 
-const gridCols = {
-  2: 'md:grid-cols-2',
-  3: 'md:grid-cols-2 lg:grid-cols-3',
-  4: 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+// Responsive grid column configurations
+// columns=3 uses 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' for optimal layout with desktop sidebar
+const gridCols: Record<2 | 3 | 4, string> = {
+  2: 'grid-cols-1 md:grid-cols-2',
+  3: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3',
+  4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
 };
+
+const activeGridClass = gridCols[columns] || gridCols[3];
 ---
 
-{treks.length > 0 ? (
-  <div class={`grid grid-cols-1 ${gridCols[columns]} gap-6`}>
+{treks && treks.length > 0 ? (
+  <div class:list={['grid', activeGridClass, 'gap-6 lg:gap-8', className]}>
     {treks.map((trek) => (
       <TrekCard
         trek={trek}
@@ -31,16 +50,42 @@ const gridCols = {
     ))}
   </div>
 ) : showEmpty ? (
-  <div class="text-center py-16">
-    <div class="w-20 h-20 mx-auto mb-6 bg-neutral-100 rounded-full flex items-center justify-center">
-      <svg class="w-10 h-10 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+  <div class="bg-white rounded-2xl border border-dashed border-neutral-300 p-8 sm:p-12 text-center my-6 shadow-sm">
+    <div class="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary-50 border border-primary-100 flex items-center justify-center text-primary-500 shadow-inner">
+      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.75"
+          d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+        />
       </svg>
     </div>
-    <h3 class="text-xl font-semibold text-neutral-900 mb-2">No treks found</h3>
-    <p class="text-neutral-500 max-w-md mx-auto">
-      We couldn't find any treks matching your criteria. Try adjusting your filters or check back later.
+    <h3 class="text-xl font-bold text-secondary-600 mb-2">{emptyTitle}</h3>
+    <p class="text-neutral-600 text-sm md:text-base max-w-md mx-auto mb-6">
+      {emptyMessage}
     </p>
+    {showResetButton && (
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={resetUrl}
+          class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white text-sm font-semibold rounded-xl shadow-sm hover:shadow transition-all duration-200"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Clear All Filters
+        </a>
+        <a
+          href="/#lead-form"
+          class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-secondary-600 hover:text-primary-600 hover:bg-neutral-50 rounded-xl transition-colors"
+        >
+          <span>Ask a Trek Expert</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </a>
+      </div>
+    )}
   </div>
 ) : null}
-
