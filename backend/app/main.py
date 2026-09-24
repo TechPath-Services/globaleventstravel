@@ -45,6 +45,24 @@ async def lifespan(app: FastAPI):
     else:
         # Default behavior: use create_all() for backward compatibility
         Base.metadata.create_all(bind=engine)
+
+    # Additive column for existing DBs (create_all does not ALTER tables)
+    try:
+        from sqlalchemy import inspect, text
+
+        inspector = inspect(engine)
+        if "blog_posts" in inspector.get_table_names():
+            columns = {col["name"] for col in inspector.get_columns("blog_posts")}
+            if "structured_data" not in columns:
+                dialect = engine.dialect.name
+                with engine.begin() as conn:
+                    if dialect == "sqlite":
+                        conn.execute(text("ALTER TABLE blog_posts ADD COLUMN structured_data JSON"))
+                    else:
+                        conn.execute(text("ALTER TABLE blog_posts ADD COLUMN structured_data JSON NULL"))
+                print("[OK] Added blog_posts.structured_data column")
+    except Exception as e:
+        print(f"Warning: could not ensure blog_posts.structured_data column: {e}")
     
     yield
     

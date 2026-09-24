@@ -39,7 +39,7 @@ function decodeHtmlEntities(value: string): string {
     );
 }
 
-function fixMarkdownTables(content: string): string {
+export function normalizeMarkdownTables(content: string): string {
   const lines = content.split('\n');
   const result: string[] = [];
   let inTable = false;
@@ -70,11 +70,18 @@ function fixMarkdownTables(content: string): string {
         }
         result.push(lines[i]);
       }
-    } else {
-      if (inTable && line === '') {
-        continue; // skip empty lines inside table
-      }
+    } else if (inTable && line === '') {
+      let next = i + 1;
+      while (next < lines.length && lines[next].trim() === '') next += 1;
+      const nextLine = next < lines.length ? lines[next].trim() : '';
+      const nextIsRow = nextLine.startsWith('|') && nextLine.endsWith('|');
+      if (nextIsRow) continue;
       inTable = false;
+      tableHeaderProcessed = false;
+      result.push('');
+    } else {
+      inTable = false;
+      tableHeaderProcessed = false;
       result.push(lines[i]);
     }
   }
@@ -83,7 +90,7 @@ function fixMarkdownTables(content: string): string {
 }
 
 function renderMarkdown(content: string): RenderedBlogContent {
-  const processedContent = fixMarkdownTables(content);
+  const processedContent = normalizeMarkdownTables(content);
   const headings: ContentHeading[] = [];
   const markdown = new MarkdownIt({
     breaks: true,
@@ -113,7 +120,7 @@ function renderMarkdown(content: string): RenderedBlogContent {
   };
 }
 
-function renderHtml(content: string): RenderedBlogContent {
+export function renderHtmlContent(content: string): RenderedBlogContent {
   const headings: ContentHeading[] = [];
   const html = content.replace(
     /<h2(\s[^>]*)?>([\s\S]*?)<\/h2>/gi,
@@ -130,18 +137,23 @@ function renderHtml(content: string): RenderedBlogContent {
   return { html, headings };
 }
 
+export function isMarkdownContent(
+  content: string,
+  contentType?: 'html' | 'markdown'
+): boolean {
+  const hasHtmlBlocks = /<(?:p|h[1-6]|div|ul|ol|table|blockquote|pre)\b/i.test(content);
+  const isLikelyMd =
+    !hasHtmlBlocks &&
+    /^(?: {0,3}#{1,6}\s| {0,3}(?:[-+*]|\d+\.)\s| {0,3}>\s| {0,3}```|\|)/m.test(content);
+
+  return contentType === 'markdown' || isLikelyMd || (contentType !== 'html' && !hasHtmlBlocks);
+}
+
 export function renderContent(
   content: string | undefined | null,
   contentType?: 'html' | 'markdown'
 ): RenderedBlogContent {
   if (!content) return { html: '', headings: [] };
 
-  // If explicitly HTML, or if it contains block-level HTML tags, treat as HTML.
-  // Otherwise, default to Markdown to properly handle raw text, newlines, and markdown syntax.
-  const hasHtmlBlocks = /<(?:p|h[1-6]|div|ul|ol|table|blockquote|pre)\b/i.test(content);
-  const isLikelyMd = !hasHtmlBlocks && /^(?: {0,3}#{1,6}\s| {0,3}(?:[-+*]|\d+\.)\s| {0,3}>\s| {0,3}```|\|)/m.test(content);
-  
-  const shouldRenderMarkdown = contentType === 'markdown' || isLikelyMd || (contentType !== 'html' && !hasHtmlBlocks);
-
-  return shouldRenderMarkdown ? renderMarkdown(content) : renderHtml(content);
+  return isMarkdownContent(content, contentType) ? renderMarkdown(content) : renderHtmlContent(content);
 }

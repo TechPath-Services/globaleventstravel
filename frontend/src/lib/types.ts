@@ -257,6 +257,7 @@ export interface BlogPost {
   metaTitle?: string;
   metaDescription?: string;
   metaKeywords?: string[];
+  structuredData?: Record<string, unknown> | unknown[] | null;
   createdAt?: string;
   updatedAt?: string;
 }

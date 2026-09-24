@@ -65,6 +65,7 @@ export interface BlogPost {
   metaTitle?: string;
   metaDescription?: string;
   metaKeywords?: string[];
+  structuredData?: Record<string, unknown> | unknown[] | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -104,6 +105,7 @@ export interface BlogPostCreate {
   meta_title?: string;
   meta_description?: string;
   meta_keywords?: string[];
+  structured_data?: Record<string, unknown> | unknown[] | null;
   author_id: number;
   published_at?: string;
 }

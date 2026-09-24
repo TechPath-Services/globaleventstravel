@@ -153,6 +153,8 @@ class BlogPost(Base):
     meta_title: Mapped[Optional[str]] = mapped_column(String(70), nullable=True)
     meta_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     meta_keywords: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
+    # Optional manual JSON-LD / schema.org payload for the article page
+    structured_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

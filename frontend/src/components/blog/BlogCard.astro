@@ -10,7 +10,9 @@ const { post, featured = false } = Astro.props;
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('en-IN', {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-IN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -20,8 +22,16 @@ const formatDate = (dateStr: string) => {
 // Use categoryName from API response (already resolved on the backend)
 const categoryLabel = (post as any).categoryName || post.category || 'General';
 
-// Handle both API format (camelCase) and legacy format
-const publishDate = post.publishDate || (post as any).publish_date || '';
+// Prefer explicit publish fields; fall back to createdAt when API omits them
+const publishDate =
+  post.publishDate ||
+  (post as any).publish_date ||
+  post.publishedAt ||
+  (post as any).published_at ||
+  post.createdAt ||
+  (post as any).created_at ||
+  '';
+const displayDate = formatDate(publishDate);
 const featuredImage = post.featuredImage || (post as any).featured_image || '/images/blog/placeholder.jpg';
 const readTime = post.readTime || (post as any).read_time || 5;
 const tags = post.tags || [];
@@ -55,8 +65,8 @@ const tags = post.tags || [];
   <div class={`${featured ? 'md:w-1/2 md:py-4' : 'mt-5'}`}>
     <!-- Meta -->
     <div class="flex items-center gap-3 text-sm text-neutral-500 mb-3">
-      <span>{formatDate(publishDate)}</span>
-      <span>•</span>
+      {displayDate && <span>{displayDate}</span>}
+      {displayDate && <span aria-hidden="true">•</span>}
       <span>{readTime} min read</span>
     </div>
 

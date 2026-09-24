@@ -9,13 +9,16 @@ interface Props {
   description?: string;
   ogImage?: string;
   headerVariant?: 'default' | 'expedition';
+  /** Optional extra JSON-LD (e.g. BlogPosting). Site Organization/WebSite JSON-LD is always included. */
+  structuredData?: Record<string, unknown> | unknown[] | null;
 }
 
 const { 
   title, 
   description = 'Discover amazing treks and expeditions in the Himalayas with Global Events Travels.',
   ogImage = '/images/home/hero-bg.webp',
-  headerVariant = 'default'
+  headerVariant = 'default',
+  structuredData = null,
 } = Astro.props;
 
 const { siteConfig, socialLinks } = await getSiteSettings();
@@ -93,6 +96,9 @@ const jsonLd = {
     
     <!-- JSON-LD for SEO (Organization + WebSite) -->
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    {structuredData && (
+      <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    )}
 
     <!-- Third-party widget (configured via admin Settings > Website Widget) -->
     {siteConfig.widgetScript && <Fragment set:html={siteConfig.widgetScript} />}
