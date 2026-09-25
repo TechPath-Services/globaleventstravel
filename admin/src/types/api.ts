@@ -307,6 +307,8 @@ export interface TrekCreate {
   meta_keywords?: string[];
   map_embed?: string;
   itinerary_pdf_url?: string;
+  rating?: number;
+  review_count?: number;
   itinerary?: ItineraryDayCreate[];
   faqs?: TrekFAQCreate[];
 }

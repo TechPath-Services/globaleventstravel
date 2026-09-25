@@ -141,6 +141,8 @@ class TrekBase(BaseModel):
 class TrekCreate(TrekBase):
     """Schema for creating a trek."""
     guide_id: Optional[int] = None
+    rating: Optional[float] = Field(default=0.0, ge=0.0, le=5.0)
+    review_count: Optional[int] = Field(default=0, ge=0)
     itinerary: Optional[List[ItineraryDayCreate]] = None
     images: Optional[List[TrekImageCreate]] = None
     faqs: Optional[List[TrekFAQCreate]] = None
@@ -175,6 +177,8 @@ class TrekUpdate(BaseModel):
     meta_keywords: Optional[List[str]] = None
     map_embed: Optional[str] = None
     itinerary_pdf_url: Optional[str] = None
+    rating: Optional[float] = Field(None, ge=0.0, le=5.0)
+    review_count: Optional[int] = Field(None, ge=0)
     guide_id: Optional[int] = None
     itinerary: Optional[List[ItineraryDayCreate]] = None
     faqs: Optional[List[TrekFAQCreate]] = None

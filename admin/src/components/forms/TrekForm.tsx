@@ -111,6 +111,8 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
       meta_keywords: trek?.meta_keywords || [],
       map_embed: trek?.map_embed || "",
       itinerary_pdf_url: trek?.itinerary_pdf_url || "",
+      rating: trek?.rating || 0,
+      review_count: trek?.review_count || 0,
       itinerary: trek?.itinerary?.map(day => ({
         day: day.day,
         title: day.title,
@@ -697,6 +699,36 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
                     min="0"
                     step="0.1"
                     {...register("distance", { valueAsNumber: true })}
+                    placeholder="120"
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <FormField
+                  label="Manual Rating (0-5)"
+                  error={errors.rating?.message}
+                  hint="Manual override for average rating"
+                >
+                  <Input
+                    type="number"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    {...register("rating", { valueAsNumber: true })}
+                    placeholder="4.5"
+                  />
+                </FormField>
+
+                <FormField
+                  label="Total Review Count"
+                  error={errors.review_count?.message}
+                  hint="Manual override for number of reviews"
+                >
+                  <Input
+                    type="number"
+                    min="0"
+                    {...register("review_count", { valueAsNumber: true })}
                     placeholder="120"
                   />
                 </FormField>
