@@ -163,6 +163,8 @@ export const trekSchema = z.object({
   meta_keywords: z.array(z.string()).optional(),
   map_embed: z.string().optional().or(z.literal("")),
   itinerary_pdf_url: z.string().url("Invalid PDF URL").optional().or(z.literal("")),
+  rating: z.number().min(0, "Rating cannot be less than 0").max(5, "Rating cannot exceed 5").optional().default(0),
+  review_count: z.number().min(0, "Review count cannot be negative").optional().default(0),
   itinerary: z.array(itineraryDaySchema).optional(),
   faqs: z.array(trekFAQSchema).optional(),
 }).refine(
