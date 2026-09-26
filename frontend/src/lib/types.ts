@@ -21,6 +21,8 @@ export interface Trek {
   status: TrekStatus;
   featured: boolean;
   location: string;
+  start_point?: string;
+  end_point?: string;
   best_season: string[];
   group_size_min: number;
   group_size_max: number;

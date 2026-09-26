@@ -57,6 +57,7 @@ backend/uploads/
 # Build outputs
 frontend/dist/
 frontend/.astro/
+frontend/.tmp-screenshots/
 admin/.next/
 admin/out/
 
