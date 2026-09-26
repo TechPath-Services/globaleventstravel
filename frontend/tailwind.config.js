@@ -59,6 +59,12 @@ export default {
         },
       },
       fontFamily: {
+        display: [
+          '"Caveat Brush"',
+          '"Brush Script MT"',
+          '"Segoe Script"',
+          'cursive',
+        ],
         sans: [
           'Inter',
           '-apple-system',

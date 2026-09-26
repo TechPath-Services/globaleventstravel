@@ -36,6 +36,8 @@ class Trek(Base):
     
     # Location & Season
     location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    start_point: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    end_point: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     best_season: Mapped[str] = mapped_column(JSON, nullable=False, default=list)  # List of seasons
     
     # Group size

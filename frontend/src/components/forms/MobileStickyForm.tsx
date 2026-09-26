@@ -18,9 +18,16 @@ interface FormErrors {
 
 interface MobileStickyFormProps {
   variant?: 'full' | 'minimal';
+  /** Preselect the trek when the form is opened from a trek-detail page. */
+  trekSlug?: string;
+  trekName?: string;
 }
 
-export default function MobileStickyForm({ variant = 'minimal' }: MobileStickyFormProps) {
+export default function MobileStickyForm({
+  variant = 'minimal',
+  trekSlug,
+  trekName,
+}: MobileStickyFormProps) {
   const { trekOptions, loading: trekLoading } = useTrekOptions();
   const isMinimal = variant === 'minimal';
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,7 +36,7 @@ export default function MobileStickyForm({ variant = 'minimal' }: MobileStickyFo
     name: '',
     email: '',
     whatsapp: '',
-    trek: '',
+    trek: trekSlug || '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,7 +133,7 @@ export default function MobileStickyForm({ variant = 'minimal' }: MobileStickyFo
         email: formData.email.trim() || undefined,
         whatsapp: formData.whatsapp,
         trek_slug: formData.trek,
-        trek_name: trekOption?.label,
+        trek_name: trekName || trekOption?.label,
         source: 'mobile_sticky',
       };
       
@@ -163,19 +170,20 @@ export default function MobileStickyForm({ variant = 'minimal' }: MobileStickyFo
 
   return (
     <>
-      {/* Sticky Bottom Bar - Only visible on mobile when scrolled */}
+      {/* Sticky Bottom Bar - Only visible on mobile when scrolled.
+          Right padding reserves space for the CDN "Ask From Riya" badge. */}
       <div
         className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${
           isVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
-        <div className="bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-4 py-3 safe-area-bottom">
+        <div className="bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] py-3 pl-3 pr-[9.5rem] safe-area-bottom">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="w-full py-3.5 px-6 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-200 flex items-center justify-center gap-2"
+            className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-200 flex items-center justify-center gap-1.5 text-sm sm:text-base"
           >
-            <span>Get Free Trek Itinerary</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <span>Get Itinerary</span>
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
           </button>
