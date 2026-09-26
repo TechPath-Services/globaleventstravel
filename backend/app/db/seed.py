@@ -561,17 +561,21 @@ def seed_offices(db: Session):
 
 
 def seed_page_content(db: Session):
-    """Seed editable page content sections for home, about, and expeditions."""
+    """Seed editable page content sections for home, about, expeditions, and treks."""
     sections_data = [
         # Home hero (booking-focused)
         {
             "page": "home",
             "key": "hero",
             "title": "Plan Your Perfect Himalayan Trek",
-            "subtitle": "Book trusted treks across the Himalayas with expert guides.",
+            "subtitle": (
+                "Book trusted treks across the Himalayas with expert guides, "
+                "personalized itineraries and unforgettable experiences."
+            ),
             "badge_text": "Now booking for 2026 season",
-            "body_html": None,
-            "image_url": None,
+            # highlight_word wraps matching title text in accent color
+            "body_html": json.dumps({"highlight_word": "Himalayan"}),
+            "image_url": "/images/home/hero-bg.webp",
             "cta_label": None,
             "cta_url": None,
             "display_order": 0,
@@ -602,6 +606,27 @@ def seed_page_content(db: Session):
             "image_url": None,
             "cta_label": "Get Free Itinerary on WhatsApp",
             "cta_url": "#whatsapp-form",
+            "display_order": 0,
+            "is_active": True,
+        },
+        # Home lead capture form copy
+        {
+            "page": "home",
+            "key": "lead_form",
+            "title": "Get Your Free Trek Guide",
+            "subtitle": "Personalized itinerary sent to WhatsApp",
+            "badge_text": None,
+            "body_html": json.dumps(
+                {
+                    "privacy_text": "Your data is 100% safe. We never share your information.",
+                    "success_message": (
+                        "Your personalized trek itinerary will be sent to your WhatsApp shortly."
+                    ),
+                }
+            ),
+            "image_url": None,
+            "cta_label": "Get Free Itinerary on WhatsApp",
+            "cta_url": None,
             "display_order": 0,
             "is_active": True,
         },
@@ -699,15 +724,20 @@ def seed_page_content(db: Session):
             "display_order": 0,
             "is_active": True,
         },
-        # Home hero stats (used by HeroHome for first stat item)
+        # Home hero stats (JSON array: { value, label, icon })
         {
             "page": "home",
             "key": "hero_stats",
             "title": None,
             "subtitle": None,
             "badge_text": None,
-            # value|label format: first stat; remaining stats still use defaults
-            "body_html": "50+|Trek Routes",
+            "body_html": json.dumps(
+                [
+                    {"value": "10,000+", "label": "Happy Trekkers", "icon": "users"},
+                    {"value": "4.8★", "label": "Average Rating", "icon": "star"},
+                    {"value": "100+", "label": "Trek Destinations", "icon": "mountain"},
+                ]
+            ),
             "image_url": None,
             "cta_label": None,
             "cta_url": None,
@@ -834,6 +864,192 @@ def seed_page_content(db: Session):
             "cta_label": None,
             "cta_url": None,
             "display_order": 1,
+            "is_active": True,
+        },
+        # Treks listing hero
+        {
+            "page": "treks",
+            "key": "hero",
+            "title": "Find Your Next Himalayan Trek",
+            "subtitle": (
+                "From beginner-friendly trails to challenging high-altitude adventures, "
+                "discover your perfect trek in the Himalayas."
+            ),
+            "badge_text": "TREK · EXPLORE · EXPERIENCE",
+            "body_html": json.dumps(
+                {
+                    "highlight_word": "Himalayan Trek",
+                    "annotation": "Breathtaking Views Await",
+                }
+            ),
+            "image_url": "/images/home/hero-bg.webp",
+            "cta_label": None,
+            "cta_url": None,
+            "display_order": 0,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "hero_primary_cta",
+            "title": None,
+            "subtitle": None,
+            "badge_text": None,
+            "body_html": None,
+            "image_url": None,
+            "cta_label": "Explore All Treks",
+            "cta_url": "#popular-treks",
+            "display_order": 0,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "hero_secondary_cta",
+            "title": None,
+            "subtitle": None,
+            "badge_text": None,
+            "body_html": None,
+            "image_url": None,
+            "cta_label": "Watch Our Story",
+            "cta_url": "https://www.youtube.com/@globaleventstravels6010",
+            "display_order": 0,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "search",
+            "title": "Where do you want to trek?",
+            "subtitle": None,
+            "badge_text": None,
+            "body_html": json.dumps(
+                {
+                    "search_placeholder": "Search Kedarkantha, Hampta Pass...",
+                    "difficulty_label": "Difficulty",
+                    "difficulty_placeholder": "Any Level",
+                    "duration_label": "Duration",
+                    "duration_placeholder": "Any Duration",
+                    "budget_label": "Budget",
+                    "budget_placeholder": "Any Budget",
+                    "popular_label": "Popular Treks:",
+                }
+            ),
+            "image_url": None,
+            "cta_label": "Find My Trek",
+            "cta_url": None,
+            "display_order": 1,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "popular_treks",
+            "title": None,
+            "subtitle": None,
+            "badge_text": None,
+            "body_html": json.dumps(
+                [
+                    {"label": "Kedarkantha", "slug": "kedarkantha"},
+                    {"label": "Hampta Pass", "slug": "hampta-pass-trek"},
+                    {"label": "Brahmatal", "slug": "brahmatal-trek"},
+                    {"label": "Valley of Flowers", "slug": "valley-of-flowers-trek"},
+                    {"label": "Kashmir Great Lakes", "slug": "kashmir-great-lakes-trek"},
+                ]
+            ),
+            "image_url": None,
+            "cta_label": None,
+            "cta_url": None,
+            "display_order": 1,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "popular_collection",
+            "title": "Popular Himalayan Treks",
+            "subtitle": None,
+            "badge_text": "TREK COLLECTION",
+            "body_html": None,
+            "image_url": None,
+            "cta_label": "View All Treks",
+            "cta_url": "#trek-catalog",
+            "display_order": 2,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "regions",
+            "title": "Explore by Himalayan Region",
+            "subtitle": None,
+            "badge_text": None,
+            "body_html": json.dumps(
+                [
+                    {
+                        "name": "Uttarakhand",
+                        "slug": "Uttarakhand",
+                        "image": "/images/destinations/uttarakhand.jpg",
+                        "count": 12,
+                    },
+                    {
+                        "name": "Himachal Pradesh",
+                        "slug": "Himachal",
+                        "image": "/images/destinations/himachal.jpg",
+                        "count": 10,
+                    },
+                    {
+                        "name": "Jammu & Kashmir",
+                        "slug": "Kashmir",
+                        "image": "/images/destinations/uttarkashi.jpg",
+                        "count": 6,
+                    },
+                    {
+                        "name": "Sikkim",
+                        "slug": "Sikkim",
+                        "image": "/images/destinations/himachal.jpg",
+                        "count": 5,
+                    },
+                ]
+            ),
+            "image_url": None,
+            "cta_label": "Explore All Regions",
+            "cta_url": "#trek-catalog",
+            "display_order": 3,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "value_props",
+            "title": None,
+            "subtitle": None,
+            "badge_text": None,
+            "body_html": json.dumps(
+                [
+                    {"label": "Handpicked Trekking Routes", "icon": "mountain"},
+                    {"label": "Experienced Local Guides", "icon": "shield"},
+                    {"label": "Safe & Well-Planned Adventures", "icon": "users"},
+                    {"label": "Unforgettable Himalayan Experiences", "icon": "leaf"},
+                ]
+            ),
+            "image_url": None,
+            "cta_label": None,
+            "cta_url": None,
+            "display_order": 2,
+            "is_active": True,
+        },
+        {
+            "page": "treks",
+            "key": "stats",
+            "title": None,
+            "subtitle": None,
+            "badge_text": None,
+            "body_html": json.dumps(
+                [
+                    {"value": "10,000+", "label": "Happy Trekkers", "icon": "users"},
+                    {"value": "4.8", "label": "Average Rating", "icon": "star"},
+                    {"value": "8+", "label": "Years Experience", "icon": "award"},
+                    {"value": "100%", "label": "Safety Focused", "icon": "shield"},
+                ]
+            ),
+            "image_url": None,
+            "cta_label": None,
+            "cta_url": None,
+            "display_order": 4,
             "is_active": True,
         },
     ]
@@ -1073,22 +1289,42 @@ def seed_admin_user(db: Session):
         print("[OK] Admin user already exists")
 
 
-def seed_all(drop_all: bool = True):
-    """Run all seed functions."""
+def _safe_db_target() -> str:
+    """Redacted DATABASE_URL for logging (no password)."""
+    import re
+
+    from app.core.config import get_settings
+
+    return re.sub(r":([^:@/]+)@", ":****@", get_settings().DATABASE_URL)
+
+
+def seed_all(drop_all: bool = False):
+    """Run all seed functions.
+
+    WARNING: drop_all=True destroys every table and all data in DATABASE_URL.
+    Never run that against production. Default is False (insert missing rows only).
+    """
     print("\n[*] Starting database seeding...\n")
-    
-    # Drop all tables if requested (for schema changes)
+    print(f"[*] DATABASE_URL host/db: {_safe_db_target()}")
+
     if drop_all:
+        print("[!] drop_all=True — this will DELETE ALL DATA in the database above.")
+        confirm = input("Type DROP to continue, or anything else to abort: ").strip()
+        if confirm != "DROP":
+            print("[*] Aborted. No changes made.")
+            return
         print("[*] Dropping all existing tables...")
         Base.metadata.drop_all(bind=engine)
-    
+    else:
+        print("[*] Keeping existing tables (insert-only for missing seed rows).")
+
     # Create tables
     print("[*] Creating tables...")
     Base.metadata.create_all(bind=engine)
-    
+
     # Create session
     db = SessionLocal()
-    
+
     try:
         seed_admin_user(db)
         seed_site_settings(db)
@@ -1099,7 +1335,7 @@ def seed_all(drop_all: bool = True):
         seed_offices(db)
         seed_blog(db)
         seed_page_content(db)
-        
+
         print("\n[OK] Database seeding completed successfully!\n")
     except Exception as e:
         print(f"\n[ERROR] Error seeding database: {e}\n")
@@ -1110,7 +1346,16 @@ def seed_all(drop_all: bool = True):
 
 
 if __name__ == "__main__":
+    import argparse
+
     # Ensure data directory exists
     os.makedirs("data", exist_ok=True)
-    seed_all()
+    parser = argparse.ArgumentParser(description="Seed database content")
+    parser.add_argument(
+        "--drop-all",
+        action="store_true",
+        help="DANGEROUS: drop all tables before seeding (requires typing DROP)",
+    )
+    args = parser.parse_args()
+    seed_all(drop_all=args.drop_all)
 

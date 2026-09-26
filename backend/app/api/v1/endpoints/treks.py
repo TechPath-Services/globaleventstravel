@@ -25,6 +25,8 @@ def list_treks(
     difficulty: Optional[str] = Query(None, pattern="^(easy|moderate|difficult|challenging|extreme)$"),
     min_price: Optional[float] = Query(None, ge=0),
     max_price: Optional[float] = Query(None, ge=0),
+    min_duration: Optional[int] = Query(None, ge=1, description="Minimum trek duration in days"),
+    max_duration: Optional[int] = Query(None, ge=1, description="Maximum trek duration in days"),
     featured: Optional[bool] = None,
     status: Optional[str] = Query(None, pattern="^(draft|published|archived|seasonal)$"),
     location: Optional[str] = None,
@@ -45,6 +47,8 @@ def list_treks(
     - **difficulty**: Filter by difficulty (easy, moderate, difficult, challenging, extreme)
     - **min_price**: Minimum price filter
     - **max_price**: Maximum price filter
+    - **min_duration**: Minimum duration in days
+    - **max_duration**: Maximum duration in days
     - **featured**: Filter featured treks only
     - **status**: Filter by status (draft, published, archived, seasonal)
     - **location**: Filter by location (partial match)
@@ -61,6 +65,8 @@ def list_treks(
         difficulty=difficulty,
         min_price=min_price,
         max_price=max_price,
+        min_duration=min_duration,
+        max_duration=max_duration,
         featured=featured,
         status=status,
         location=location,
@@ -73,6 +79,8 @@ def list_treks(
         difficulty=difficulty,
         min_price=min_price,
         max_price=max_price,
+        min_duration=min_duration,
+        max_duration=max_duration,
         featured=featured,
         status=status,
         location=location,
