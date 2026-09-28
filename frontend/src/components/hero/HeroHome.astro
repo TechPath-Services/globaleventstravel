@@ -1,157 +1,321 @@
 ---
 import LeadCaptureForm from '@/components/forms/LeadCaptureForm';
 import MobileStickyForm from '@/components/forms/MobileStickyForm';
-import { Image } from 'astro:assets';
 import { api } from '@/lib/api';
+import { LEAD_FORM_CONFIG } from '@/lib/constants';
 
 interface Props {
   backgroundImage?: string;
 }
 
-const {
-  backgroundImage = "/images/home/hero-bg.webp"
-} = Astro.props;
+const { backgroundImage: backgroundImageProp } = Astro.props;
 
 interface PageSection {
   key: string;
   title?: string | null;
   subtitle?: string | null;
   badge_text?: string | null;
+  body_html?: string | null;
+  image_url?: string | null;
   cta_label?: string | null;
   cta_url?: string | null;
 }
 
-let heroContent: PageSection | null = null;
-let primaryCta: { label: string; url: string } = { label: 'Explore Treks', url: '/treks' };
-let secondaryCta: { label: string; url: string } = { label: 'Get Free Itinerary on WhatsApp', url: '#whatsapp-form' };
+interface HeroStat {
+  value: string;
+  label: string;
+  icon?: string;
+}
+
+interface LeadFormConfig {
+  title: string;
+  subtitle: string;
+  ctaText: string;
+  privacyText: string;
+  successMessage: string;
+}
+
+const defaultStats: HeroStat[] = [
+  { value: '10,000+', label: 'Happy Trekkers', icon: 'users' },
+  { value: '4.8★', label: 'Average Rating', icon: 'star' },
+  { value: '100+', label: 'Trek Destinations', icon: 'mountain' },
+];
+
+let badgeText = 'Now booking for 2026 season';
+let title = 'Plan Your Perfect Himalayan Trek';
+let subtitle =
+  'Book trusted treks across the Himalayas with expert guides, personalized itineraries and unforgettable experiences.';
+let highlightWord = 'Himalayan';
+let backgroundImage = backgroundImageProp || '/images/home/hero-bg.webp';
+let primaryCta = { label: 'Explore Treks', url: '/treks' };
+let secondaryCta = { label: 'Get Free Itinerary on WhatsApp', url: '#whatsapp-form' };
+let stats: HeroStat[] = defaultStats;
+let leadFormConfig: LeadFormConfig = {
+  title: LEAD_FORM_CONFIG.formTitle,
+  subtitle: LEAD_FORM_CONFIG.formSubtitle,
+  ctaText: LEAD_FORM_CONFIG.ctaText,
+  privacyText: LEAD_FORM_CONFIG.privacyText,
+  successMessage: LEAD_FORM_CONFIG.successMessage,
+};
+
+function parseJson<T>(raw: string | null | undefined): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
 
 try {
-  const sections = await api.get<PageSection[]>(`/content/home`);
+  const sections = await api.get<PageSection[]>('/content/home');
 
-  const heroSection = sections.find((s) => s.key === "hero");
-  const primarySection = sections.find((s) => s.key === "hero_primary_cta");
-  const secondarySection = sections.find((s) => s.key === "hero_secondary_cta");
+  const heroSection = sections.find((s) => s.key === 'hero');
+  const primarySection = sections.find((s) => s.key === 'hero_primary_cta');
+  const secondarySection = sections.find((s) => s.key === 'hero_secondary_cta');
+  const statsSection = sections.find((s) => s.key === 'hero_stats');
+  const leadFormSection = sections.find((s) => s.key === 'lead_form');
 
-  if (heroSection) heroContent = heroSection;
-  if (primarySection?.cta_label) primaryCta = { label: primarySection.cta_label, url: primarySection.cta_url || '/treks' };
-  if (secondarySection?.cta_label) secondaryCta = { label: secondarySection.cta_label, url: secondarySection.cta_url || '#whatsapp-form' };
+  if (heroSection) {
+    if (heroSection.badge_text) badgeText = heroSection.badge_text;
+    if (heroSection.title) title = heroSection.title;
+    if (heroSection.subtitle) subtitle = heroSection.subtitle;
+    if (heroSection.image_url) backgroundImage = heroSection.image_url;
+
+    const meta = parseJson<{ highlight_word?: string }>(heroSection.body_html);
+    if (meta?.highlight_word) highlightWord = meta.highlight_word;
+  }
+
+  if (primarySection?.cta_label) {
+    primaryCta = {
+      label: primarySection.cta_label,
+      url: primarySection.cta_url || '/treks',
+    };
+  }
+
+  if (secondarySection?.cta_label) {
+    secondaryCta = {
+      label: secondarySection.cta_label,
+      url: secondarySection.cta_url || '#whatsapp-form',
+    };
+  }
+
+  if (statsSection?.body_html) {
+    const parsed = parseJson<HeroStat[]>(statsSection.body_html);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      stats = parsed;
+    } else if (statsSection.body_html.includes('|')) {
+      // Legacy "value|label" seed format
+      const [value, label] = statsSection.body_html.split('|');
+      if (value && label) {
+        stats = [{ value: value.trim(), label: label.trim(), icon: 'mountain' }, ...defaultStats.slice(1)];
+      }
+    }
+  }
+
+  if (leadFormSection) {
+    const formMeta = parseJson<{ privacy_text?: string; success_message?: string }>(
+      leadFormSection.body_html
+    );
+    leadFormConfig = {
+      title: leadFormSection.title || leadFormConfig.title,
+      subtitle: leadFormSection.subtitle || leadFormConfig.subtitle,
+      ctaText: leadFormSection.cta_label || leadFormConfig.ctaText,
+      privacyText: formMeta?.privacy_text || leadFormConfig.privacyText,
+      successMessage: formMeta?.success_message || leadFormConfig.successMessage,
+    };
+  }
 } catch (error) {
   console.error('Failed to fetch home hero content, using defaults:', error);
 }
+
+const titleParts = highlightWord && title.includes(highlightWord)
+  ? (() => {
+      const idx = title.indexOf(highlightWord);
+      return {
+        before: title.slice(0, idx),
+        highlight: highlightWord,
+        after: title.slice(idx + highlightWord.length),
+      };
+    })()
+  : null;
 ---
 
-<section id="whatsapp-form" class="relative min-h-[90vh] lg:min-h-screen flex items-center overflow-hidden scroll-mt-20">
-  <!-- Background Image -->
+<section
+  id="whatsapp-form"
+  class="hero-home relative min-h-[92vh] lg:min-h-screen flex items-center overflow-hidden scroll-mt-20"
+>
+  <!-- Full-bleed background -->
   <div class="absolute inset-0">
-    <Image
+    <img
       src={backgroundImage}
-      alt="Himalayan mountain landscape"
-      class="w-full h-full object-cover"
-      width={800}
-      height={600}
+      alt="Himalayan mountain landscape with trekkers"
+      class="hero-home__bg w-full h-full object-cover"
+      width="1920"
+      height="1080"
       loading="eager"
       fetchpriority="high"
+      decoding="async"
     />
-    <!-- Gradient overlay for text readability -->
-    <div class="absolute inset-0 bg-gradient-to-r from-secondary-600/90 via-secondary-600/80 to-secondary-600/60 lg:to-transparent"></div>
-    <!-- Additional overlay for form area on desktop -->
-    <div class="hidden lg:block absolute inset-0 bg-gradient-to-l from-black/30 via-transparent to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-r from-secondary-900/85 via-secondary-800/70 to-secondary-900/35"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-secondary-900/60 via-transparent to-secondary-900/20"></div>
   </div>
 
-  <!-- Animated accent shapes -->
-  <div class="absolute inset-0 overflow-hidden pointer-events-none">
-    <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl animate-pulse"></div>
-    <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-  </div>
-
-  <!-- Main Content Container -->
-  <div class="relative z-10 container-custom w-full py-12 lg:py-0">
-    <div class="grid lg:grid-cols-5 gap-8 lg:gap-12 items-center">
-      
-      <!-- Left Content (60% on desktop) -->
-      <div class="lg:col-span-3 text-white">
-        <!-- Badge -->
-        {((heroContent?.badge_text) || 'Now booking for 2026 season') && (
-          <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full mb-6 border border-white/20">
-            <span class="w-2 h-2 bg-primary-500 rounded-full animate-pulse"></span>
-            <span class="text-sm font-medium">
-              {heroContent?.badge_text || 'Now booking for 2026 season'}
+  <div class="relative z-10 container-custom w-full py-16 lg:py-20">
+    <div class="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+      <!-- Left: copy + CTAs + trust -->
+      <div class="lg:col-span-7 text-white">
+        {badgeText && (
+          <div class="hero-home__reveal hero-home__reveal--1 inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full mb-6 border border-white/20 shadow-lg shadow-black/10">
+            <span class="relative flex h-2 w-2">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-400 opacity-75"></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-primary-500"></span>
             </span>
+            <span class="text-sm font-medium tracking-wide text-white/95">{badgeText}</span>
           </div>
         )}
 
-        <!-- Main Headline - Booking focused -->
-        <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 leading-tight text-white drop-shadow-lg">
-          {heroContent?.title || 'Plan Your Perfect Himalayan Trek'}
+        <h1 class="hero-home__reveal hero-home__reveal--2 text-4xl sm:text-5xl lg:text-[3.4rem] xl:text-6xl font-bold mb-5 leading-[1.1] text-white drop-shadow-md">
+          {titleParts ? (
+            <>
+              {titleParts.before}<span class="text-primary-400">{titleParts.highlight}</span>{titleParts.after}
+            </>
+          ) : (
+            title
+          )}
         </h1>
 
-        <!-- Subheadline -->
-        <p class="text-lg md:text-xl text-white/90 mb-8 max-w-xl leading-relaxed drop-shadow">
-          {heroContent?.subtitle || 'Book trusted treks across the Himalayas with expert guides.'}
+        <p class="hero-home__reveal hero-home__reveal--3 text-lg md:text-xl text-white/90 mb-8 max-w-xl leading-relaxed">
+          {subtitle}
         </p>
 
-        <!-- Primary & Secondary CTAs -->
-        <div class="flex flex-col sm:flex-row gap-4 mb-8">
+        <div class="hero-home__reveal hero-home__reveal--4 flex flex-col sm:flex-row gap-3.5 mb-10">
           <a
             href={primaryCta.url}
-            class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/30 transition-all duration-200 text-lg"
+            class="hero-home__cta-primary inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-xl shadow-primary-500/35 transition-all duration-300 text-base md:text-lg hover:-translate-y-0.5"
           >
             {primaryCta.label}
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
           </a>
           <a
             href={secondaryCta.url}
-            class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 text-white font-semibold rounded-xl transition-all duration-200 text-lg"
+            class="hero-home__cta-secondary inline-flex items-center justify-center gap-2.5 px-7 py-4 bg-white/10 hover:bg-white/18 backdrop-blur-sm border border-white/35 text-white font-semibold rounded-xl transition-all duration-300 text-base md:text-lg hover:-translate-y-0.5"
           >
+            <svg class="w-5 h-5 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
             {secondaryCta.label}
           </a>
         </div>
 
-        <!-- Subtle stats (small white text) - moved to Why Choose Us, minimal here -->
-        <div class="flex flex-wrap gap-6 text-white/70 text-sm mb-6">
-          <span>10,000+ Happy Trekkers</span>
-          <span>4.8★ Average Rating</span>
-        </div>
-
-        <!-- Trust Badges (Mobile) -->
-        <div class="flex flex-wrap gap-4 mt-6 lg:hidden">
-          <div class="flex items-center gap-2 text-white/80 text-sm">
-            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <span>Free Itinerary</span>
-          </div>
-          <div class="flex items-center gap-2 text-white/80 text-sm">
-            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <span>WhatsApp Delivery</span>
-          </div>
-          <div class="flex items-center gap-2 text-white/80 text-sm">
-            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <span>No Spam</span>
-          </div>
+        <div class="hero-home__reveal hero-home__reveal--5 flex flex-wrap gap-x-8 gap-y-4">
+          {stats.map((stat) => (
+            <div class="flex items-center gap-3 text-white/90">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 border border-white/15 backdrop-blur-sm">
+                {stat.icon === 'star' ? (
+                  <svg class="w-5 h-5 text-primary-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ) : stat.icon === 'mountain' ? (
+                  <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m3 20 7-12 3 5 2.5-4L21 20H3Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14 8V5m0 0 1.5 1.5M14 5l-1.5 1.5" />
+                  </svg>
+                ) : (
+                  <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                    <circle cx="9" cy="7" r="4" stroke-width="1.8" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+                  </svg>
+                )}
+              </span>
+              <div>
+                <div class="text-sm font-semibold text-white leading-tight">{stat.value}</div>
+                <div class="text-xs text-white/65">{stat.label}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      <!-- Right Form Panel (40% on desktop) - Hidden on mobile, minimal variant -->
-      <div class="hidden lg:block lg:col-span-2">
-        <LeadCaptureForm client:idle variant="minimal" />
+      <!-- Right: lead form -->
+      <div class="hero-home__reveal hero-home__reveal--3 hidden lg:block lg:col-span-5">
+        <LeadCaptureForm
+          client:idle
+          variant="minimal"
+          formTitle={leadFormConfig.title}
+          formSubtitle={leadFormConfig.subtitle}
+          ctaText={leadFormConfig.ctaText}
+          privacyText={leadFormConfig.privacyText}
+          successMessage={leadFormConfig.successMessage}
+        />
       </div>
     </div>
   </div>
 
-  <!-- Scroll indicator -->
-  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce hidden lg:block">
-    <svg class="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+  <!-- Scroll cue -->
+  <a
+    href="#featured-treks"
+    class="hero-home__scroll absolute bottom-7 left-1/2 -translate-x-1/2 hidden lg:flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+    aria-label="Scroll to featured treks"
+  >
+    <svg class="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7" />
     </svg>
-  </div>
+  </a>
 </section>
 
-<!-- Mobile Sticky Form (only rendered on mobile) -->
-<MobileStickyForm client:idle />
+<MobileStickyForm
+  client:idle
+  formTitle={leadFormConfig.title}
+  formSubtitle={leadFormConfig.subtitle}
+  ctaText={leadFormConfig.ctaText}
+  privacyText={leadFormConfig.privacyText}
+  successMessage={leadFormConfig.successMessage}
+/>
+
+<style>
+  .hero-home__bg {
+    animation: hero-kenburns 28s ease-out forwards;
+    transform-origin: center center;
+  }
+
+  .hero-home__reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    animation: hero-fade-up 0.7s ease-out forwards;
+  }
+
+  .hero-home__reveal--1 { animation-delay: 0.08s; }
+  .hero-home__reveal--2 { animation-delay: 0.18s; }
+  .hero-home__reveal--3 { animation-delay: 0.3s; }
+  .hero-home__reveal--4 { animation-delay: 0.42s; }
+  .hero-home__reveal--5 { animation-delay: 0.54s; }
+
+  @keyframes hero-fade-up {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes hero-kenburns {
+    from { transform: scale(1); }
+    to { transform: scale(1.06); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-home__bg,
+    .hero-home__reveal,
+    .hero-home__scroll svg {
+      animation: none !important;
+    }
+
+    .hero-home__reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>

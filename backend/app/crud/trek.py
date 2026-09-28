@@ -42,6 +42,8 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
         difficulty: Optional[str] = None,
         max_price: Optional[float] = None,
         min_price: Optional[float] = None,
+        min_duration: Optional[int] = None,
+        max_duration: Optional[int] = None,
         featured: Optional[bool] = None,
         status: Optional[str] = None,
         location: Optional[str] = None,
@@ -58,6 +60,10 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
             query = query.filter(Trek.price <= max_price)
         if min_price is not None:
             query = query.filter(Trek.price >= min_price)
+        if min_duration is not None:
+            query = query.filter(Trek.duration >= min_duration)
+        if max_duration is not None:
+            query = query.filter(Trek.duration <= max_duration)
         if featured is not None:
             query = query.filter(Trek.featured == featured)
         if status:
@@ -96,6 +102,8 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
         difficulty: Optional[str] = None,
         max_price: Optional[float] = None,
         min_price: Optional[float] = None,
+        min_duration: Optional[int] = None,
+        max_duration: Optional[int] = None,
         featured: Optional[bool] = None,
         status: Optional[str] = None,
         location: Optional[str] = None,
@@ -111,6 +119,10 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
             query = query.filter(Trek.price <= max_price)
         if min_price is not None:
             query = query.filter(Trek.price >= min_price)
+        if min_duration is not None:
+            query = query.filter(Trek.duration >= min_duration)
+        if max_duration is not None:
+            query = query.filter(Trek.duration <= max_duration)
         if featured is not None:
             query = query.filter(Trek.featured == featured)
         if status:

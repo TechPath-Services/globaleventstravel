@@ -1,0 +1,414 @@
+---
+import FeaturedTrekSlider from '@/components/hero/FeaturedTrekSlider';
+import { api, treksApi } from '@/lib/api';
+import { DIFFICULTY_LABELS } from '@/lib/constants';
+import type { Trek } from '@/lib/types';
+
+interface Props {
+  search?: string;
+  difficulty?: string;
+  duration?: string;
+  maxPrice?: string;
+  budgetTiers: { label: string; value: string }[];
+}
+
+interface PageSection {
+  key: string;
+  title?: string | null;
+  subtitle?: string | null;
+  badge_text?: string | null;
+  body_html?: string | null;
+  image_url?: string | null;
+  cta_label?: string | null;
+  cta_url?: string | null;
+}
+
+interface SearchCopy {
+  search_placeholder?: string;
+  difficulty_label?: string;
+  difficulty_placeholder?: string;
+  duration_label?: string;
+  duration_placeholder?: string;
+  budget_label?: string;
+  budget_placeholder?: string;
+  popular_label?: string;
+}
+
+interface PopularChip {
+  label: string;
+  slug: string;
+}
+
+const {
+  search,
+  difficulty,
+  duration,
+  maxPrice,
+  budgetTiers,
+} = Astro.props;
+
+const defaultPopular: PopularChip[] = [
+  { label: 'Kedarkantha', slug: 'kedarkantha' },
+  { label: 'Hampta Pass', slug: 'hampta-pass-trek' },
+  { label: 'Brahmatal', slug: 'brahmatal-trek' },
+  { label: 'Valley of Flowers', slug: 'valley-of-flowers-trek' },
+  { label: 'Kashmir Great Lakes', slug: 'kashmir-great-lakes-trek' },
+];
+
+const durationOptions = [
+  { label: 'Any Duration', value: '' },
+  { label: '1–3 Days', value: '1-3' },
+  { label: '4–6 Days', value: '4-6' },
+  { label: '7–9 Days', value: '7-9' },
+  { label: '10+ Days', value: '10+' },
+];
+
+let badgeText = 'TREK · EXPLORE · EXPERIENCE';
+let title = 'Find Your Next Himalayan Trek';
+let subtitle =
+  'From beginner-friendly trails to challenging high-altitude adventures, discover your perfect trek in the Himalayas.';
+let highlightWord = 'Himalayan Trek';
+let annotation = 'Breathtaking Views Await';
+let backgroundImage = '/images/home/hero-bg.webp';
+let primaryCta = { label: 'Explore All Treks', url: '#popular-treks' };
+let secondaryCta = {
+  label: 'Watch Our Story',
+  url: 'https://www.youtube.com/@globaleventstravels6010',
+};
+let searchTitle = 'Where do you want to trek?';
+let searchCta = 'Find My Trek';
+let searchCopy: SearchCopy = {
+  search_placeholder: 'Search Kedarkantha, Hampta Pass...',
+  difficulty_label: 'Difficulty',
+  difficulty_placeholder: 'Any Level',
+  duration_label: 'Duration',
+  duration_placeholder: 'Any Duration',
+  budget_label: 'Budget',
+  budget_placeholder: 'Any Budget',
+  popular_label: 'Popular Treks:',
+};
+let popularChips = defaultPopular;
+let featuredTreks: Trek[] = [];
+
+function parseJson<T>(raw: string | null | undefined): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+try {
+  const [sections, featured] = await Promise.all([
+    api.get<PageSection[]>('/content/treks'),
+    treksApi.getFeatured(6),
+  ]);
+
+  featuredTreks = featured || [];
+
+  const heroSection = sections.find((s) => s.key === 'hero');
+  const primarySection = sections.find((s) => s.key === 'hero_primary_cta');
+  const secondarySection = sections.find((s) => s.key === 'hero_secondary_cta');
+  const searchSection = sections.find((s) => s.key === 'search');
+  const popularSection = sections.find((s) => s.key === 'popular_treks');
+
+  if (heroSection) {
+    if (heroSection.badge_text) badgeText = heroSection.badge_text;
+    if (heroSection.title) title = heroSection.title;
+    if (heroSection.subtitle) subtitle = heroSection.subtitle;
+    if (heroSection.image_url) backgroundImage = heroSection.image_url;
+    const meta = parseJson<{ highlight_word?: string; annotation?: string }>(heroSection.body_html);
+    if (meta?.highlight_word) highlightWord = meta.highlight_word;
+    if (meta?.annotation) annotation = meta.annotation;
+  }
+
+  if (primarySection?.cta_label) {
+    primaryCta = {
+      label: primarySection.cta_label,
+      url: primarySection.cta_url || '#popular-treks',
+    };
+  }
+
+  if (secondarySection?.cta_label) {
+    secondaryCta = {
+      label: secondarySection.cta_label,
+      url: secondarySection.cta_url || secondaryCta.url,
+    };
+  }
+
+  if (searchSection) {
+    if (searchSection.title) searchTitle = searchSection.title;
+    if (searchSection.cta_label) searchCta = searchSection.cta_label;
+    const copy = parseJson<SearchCopy>(searchSection.body_html);
+    if (copy) searchCopy = { ...searchCopy, ...copy };
+  }
+
+  if (popularSection?.body_html) {
+    const parsed = parseJson<PopularChip[]>(popularSection.body_html);
+    if (Array.isArray(parsed) && parsed.length > 0) popularChips = parsed;
+  }
+} catch (error) {
+  console.error('Failed to fetch treks hero content, using defaults:', error);
+}
+
+const titleParts =
+  highlightWord && title.includes(highlightWord)
+    ? (() => {
+        const idx = title.indexOf(highlightWord);
+        return {
+          before: title.slice(0, idx),
+          highlight: highlightWord,
+          after: title.slice(idx + highlightWord.length),
+        };
+      })()
+    : null;
+
+const secondaryIsExternal = secondaryCta.url.startsWith('http');
+---
+
+<section class="hero-treks relative overflow-hidden bg-secondary-900">
+  <!-- Full-bleed background -->
+  <div class="absolute inset-0">
+    <img
+      src={backgroundImage}
+      alt="Himalayan mountain landscape"
+      class="hero-treks__bg w-full h-full object-cover"
+      width="1920"
+      height="1080"
+      loading="eager"
+      fetchpriority="high"
+      decoding="async"
+    />
+    <div class="absolute inset-0 bg-gradient-to-r from-secondary-950/90 via-secondary-900/75 to-secondary-900/45"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-secondary-950 via-secondary-900/40 to-transparent"></div>
+  </div>
+
+  <div class="relative z-10 container-custom pt-16 sm:pt-20 lg:pt-24 pb-8 sm:pb-10">
+    <div class="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+      <!-- Copy + CTAs -->
+      <div class="lg:col-span-7 text-center lg:text-left text-white">
+        {badgeText && (
+          <p class="hero-treks__reveal hero-treks__reveal--1 text-xs sm:text-sm font-semibold tracking-[0.22em] uppercase text-primary-300 mb-4">
+            {badgeText}
+          </p>
+        )}
+
+        <h1 class="hero-treks__reveal hero-treks__reveal--2 text-3xl sm:text-4xl md:text-5xl xl:text-[3.4rem] font-extrabold text-white leading-[1.12] mb-4 drop-shadow-md">
+          {titleParts ? (
+            <>
+              {titleParts.before}<span class="text-primary-400">{titleParts.highlight}</span>{titleParts.after}
+            </>
+          ) : (
+            title
+          )}
+        </h1>
+
+        <p class="hero-treks__reveal hero-treks__reveal--3 text-base sm:text-lg text-white/85 max-w-xl mx-auto lg:mx-0 mb-7 leading-relaxed">
+          {subtitle}
+        </p>
+
+        <div class="hero-treks__reveal hero-treks__reveal--4 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 mb-8 lg:mb-0 w-full">
+          <a
+            href={primaryCta.url}
+            class="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-6 py-3.5 bg-primary-500 hover:bg-primary-600 text-white text-sm sm:text-base font-semibold rounded-xl shadow-xl shadow-primary-500/30 transition-all hover:-translate-y-0.5 whitespace-nowrap"
+          >
+            <span>{primaryCta.label}</span>
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </a>
+          <a
+            href={secondaryCta.url}
+            {...(secondaryIsExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            class="inline-flex w-full sm:w-auto items-center justify-center gap-2.5 px-6 py-3.5 bg-white/10 hover:bg-white/18 backdrop-blur-sm border border-white/30 text-white text-sm sm:text-base font-semibold rounded-xl transition-all hover:-translate-y-0.5 whitespace-nowrap"
+          >
+            <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/50">
+              <svg class="w-2.5 h-2.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 5v14l11-7L8 5z" />
+              </svg>
+            </span>
+            <span>{secondaryCta.label}</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Featured trek slider -->
+      <div class="hero-treks__reveal hero-treks__reveal--3 lg:col-span-5">
+        <FeaturedTrekSlider client:load treks={featuredTreks} annotation={annotation} />
+      </div>
+    </div>
+
+    <!-- Search card -->
+    <div class="hero-treks__reveal hero-treks__reveal--5 mt-10 sm:mt-12 lg:mt-14">
+      <div class="bg-white rounded-2xl shadow-2xl shadow-black/20 border border-neutral-100 p-5 sm:p-6 lg:p-7">
+        <form
+          action="/treks"
+          method="get"
+          class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-4 items-end"
+        >
+          <input type="hidden" name="page" value="1" />
+
+          <div class="sm:col-span-2 xl:col-span-4">
+            <label for="hero-search" class="block text-xs font-semibold text-neutral-600 mb-1.5">
+              {searchTitle}
+            </label>
+            <div class="relative">
+              <input
+                type="text"
+                id="hero-search"
+                name="search"
+                value={search || ''}
+                placeholder={searchCopy.search_placeholder}
+                class="w-full pl-10 pr-4 py-3 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all placeholder:text-neutral-400"
+              />
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="xl:col-span-2">
+            <label for="hero-difficulty" class="block text-xs font-semibold text-neutral-600 mb-1.5">
+              {searchCopy.difficulty_label}
+            </label>
+            <div class="relative">
+              <select
+                id="hero-difficulty"
+                name="difficulty"
+                class="w-full appearance-none pl-9 pr-8 py-3 border border-neutral-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-neutral-800"
+              >
+                <option value="">{searchCopy.difficulty_placeholder}</option>
+                {Object.entries(DIFFICULTY_LABELS).map(([key, val]) => (
+                  <option value={key} {...(difficulty === key ? { selected: true } : {})}>{val.label}</option>
+                ))}
+              </select>
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-primary-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m3 20 7-12 3 5 2.5-4L21 20H3Z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="xl:col-span-2">
+            <label for="hero-duration" class="block text-xs font-semibold text-neutral-600 mb-1.5">
+              {searchCopy.duration_label}
+            </label>
+            <div class="relative">
+              <select
+                id="hero-duration"
+                name="duration"
+                class="w-full appearance-none pl-9 pr-8 py-3 border border-neutral-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-neutral-800"
+              >
+                {durationOptions.map((opt) => (
+                  <option value={opt.value} {...((duration === opt.value || (!duration && !opt.value)) ? { selected: true } : {})}>
+                    {opt.value ? opt.label : searchCopy.duration_placeholder}
+                  </option>
+                ))}
+              </select>
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-primary-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="16" rx="2" stroke-width="1.8" />
+                  <path d="M8 3v4m8-4v4M7 11h10" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="xl:col-span-2">
+            <label for="hero-budget" class="block text-xs font-semibold text-neutral-600 mb-1.5">
+              {searchCopy.budget_label}
+            </label>
+            <div class="relative">
+              <select
+                id="hero-budget"
+                name="max_price"
+                class="w-full appearance-none pl-9 pr-8 py-3 border border-neutral-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-neutral-800"
+              >
+                {budgetTiers.map((tier) => (
+                  <option value={tier.value} {...((maxPrice === tier.value || (!maxPrice && !tier.value)) ? { selected: true } : {})}>
+                    {tier.value ? tier.label : searchCopy.budget_placeholder}
+                  </option>
+                ))}
+              </select>
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-primary-500">
+                <span class="text-sm font-bold leading-none">₹</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sm:col-span-2 xl:col-span-2">
+            <button
+              type="submit"
+              class="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all min-h-[48px]"
+            >
+              {searchCta}
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-5 pt-4 border-t border-neutral-100 flex flex-wrap items-center gap-2">
+          <span class="text-xs font-semibold text-neutral-500 mr-1">{searchCopy.popular_label}</span>
+          {popularChips.map((chip) => (
+            <a
+              href={`/treks/${chip.slug}`}
+              class="px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium bg-neutral-100 hover:bg-primary-50 text-neutral-700 hover:text-primary-700 border border-transparent hover:border-primary-200 transition-colors"
+            >
+              {chip.label}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+
+  .hero-treks__bg {
+    animation: hero-treks-kenburns 28s ease-out forwards;
+    transform-origin: center center;
+  }
+
+  .hero-treks__reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: hero-treks-fade-up 0.7s ease-out forwards;
+  }
+
+  .hero-treks__reveal--1 { animation-delay: 0.08s; }
+  .hero-treks__reveal--2 { animation-delay: 0.18s; }
+  .hero-treks__reveal--3 { animation-delay: 0.3s; }
+  .hero-treks__reveal--4 { animation-delay: 0.42s; }
+  .hero-treks__reveal--5 { animation-delay: 0.54s; }
+
+  @keyframes hero-treks-fade-up {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes hero-treks-kenburns {
+    from { transform: scale(1); }
+    to { transform: scale(1.06); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-treks__bg,
+    .hero-treks__reveal {
+      animation: none !important;
+    }
+
+    .hero-treks__reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>

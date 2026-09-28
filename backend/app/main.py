@@ -46,23 +46,35 @@ async def lifespan(app: FastAPI):
         # Default behavior: use create_all() for backward compatibility
         Base.metadata.create_all(bind=engine)
 
-    # Additive column for existing DBs (create_all does not ALTER tables)
+    # Additive columns for existing DBs (create_all does not ALTER tables)
     try:
         from sqlalchemy import inspect, text
 
         inspector = inspect(engine)
-        if "blog_posts" in inspector.get_table_names():
+        tables = inspector.get_table_names()
+        dialect = engine.dialect.name
+
+        if "blog_posts" in tables:
             columns = {col["name"] for col in inspector.get_columns("blog_posts")}
             if "structured_data" not in columns:
-                dialect = engine.dialect.name
                 with engine.begin() as conn:
                     if dialect == "sqlite":
                         conn.execute(text("ALTER TABLE blog_posts ADD COLUMN structured_data JSON"))
                     else:
                         conn.execute(text("ALTER TABLE blog_posts ADD COLUMN structured_data JSON NULL"))
                 print("[OK] Added blog_posts.structured_data column")
+
+        if "treks" in tables:
+            trek_columns = {col["name"] for col in inspector.get_columns("treks")}
+            with engine.begin() as conn:
+                if "start_point" not in trek_columns:
+                    conn.execute(text("ALTER TABLE treks ADD COLUMN start_point VARCHAR(120)"))
+                    print("[OK] Added treks.start_point column")
+                if "end_point" not in trek_columns:
+                    conn.execute(text("ALTER TABLE treks ADD COLUMN end_point VARCHAR(120)"))
+                    print("[OK] Added treks.end_point column")
     except Exception as e:
-        print(f"Warning: could not ensure blog_posts.structured_data column: {e}")
+        print(f"Warning: could not ensure additive columns: {e}")
     
     yield
     

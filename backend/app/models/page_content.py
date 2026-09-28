@@ -64,6 +64,7 @@ class PageSectionListResponse(BaseModel):
     title: Optional[str] = None
     subtitle: Optional[str] = None
     badge_text: Optional[str] = None
+    body_html: Optional[str] = None
     image_url: Optional[str] = None
     cta_label: Optional[str] = None
     cta_url: Optional[str] = None

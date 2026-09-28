@@ -63,12 +63,12 @@ export const TREK_OPTIONS = [
   { value: 'custom', label: 'Custom Trek / Not Sure' },
 ];
 
-// Form configuration
+// Form configuration (API /content/home/lead_form overrides these)
 export const LEAD_FORM_CONFIG = {
   whatsappCountryCode: '+91',
-  successMessage: 'Thank you! Your trek itinerary will be sent to your WhatsApp shortly.',
+  successMessage: 'Your personalized trek itinerary will be sent to your WhatsApp shortly.',
   privacyText: 'Your data is 100% safe. We never share your information.',
-  ctaText: 'Get Instant Itinerary',
+  ctaText: 'Get Free Itinerary on WhatsApp',
   formTitle: 'Get Your Free Trek Guide',
   formSubtitle: 'Personalized itinerary sent to WhatsApp',
 };
@@ -81,21 +81,17 @@ export const TREK_REGIONS = [
   { name: 'Sikkim', slug: 'Sikkim', image: '/images/destinations/himachal.jpg' },
 ] as const;
 
-// Hero section content
+// Hero section content (API /content/home/hero* overrides these)
 export const HERO_CONTENT = {
   badge: 'Now booking for 2026 season',
-  headline: 'Get Your Custom Himalayan Trek Itinerary',
-  subheadline: 'Free personalized trek guide with day-by-day plan, packing list & budget breakdown — sent instantly to WhatsApp',
+  headline: 'Plan Your Perfect Himalayan Trek',
+  subheadline:
+    'Book trusted treks across the Himalayas with expert guides, personalized itineraries and unforgettable experiences.',
+  highlightWord: 'Himalayan',
   stats: [
-    { value: '50+', label: 'Trek Routes' },
-    { value: '10k+', label: 'Happy Trekkers' },
-    { value: '15+', label: 'Expert Guides' },
-    { value: '8+', label: 'Years Experience' },
+    { value: '10,000+', label: 'Happy Trekkers', icon: 'users' },
+    { value: '4.8★', label: 'Average Rating', icon: 'star' },
+    { value: '100+', label: 'Trek Destinations', icon: 'mountain' },
   ],
-  testimonial: {
-    quote: 'Best trekking experience of my life! The guides were amazing.',
-    author: 'Priya S.',
-    trek: 'Kedarkantha Trek',
-  },
 };
 

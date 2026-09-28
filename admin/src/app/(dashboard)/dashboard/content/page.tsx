@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -8,8 +8,16 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { Select } from "@/components/ui/Select";
 import { contentService, type PageSection } from "@/services/content.service";
 import { useUIStore } from "@/store/ui.store";
+import {
+  CONTENT_PAGES,
+  applySectionDefaults,
+  getAvailableSectionKeys,
+  getSectionKeysForPage,
+  getSectionLabel,
+} from "@/lib/page-content-keys";
 import {
   Plus,
   Pencil,
@@ -34,13 +42,6 @@ interface EditingState {
   is_active: boolean;
 }
 
-const PAGE_OPTIONS = [
-  { value: "home", label: "Home" },
-  { value: "treks", label: "Treks" },
-  { value: "expeditions", label: "Expeditions" },
-  { value: "about", label: "About" },
-];
-
 export default function ContentPage() {
   const searchParams = useSearchParams();
   const initialPage = searchParams.get("page") || "home";
@@ -51,6 +52,24 @@ export default function ContentPage() {
   const [sections, setSections] = useState<PageSection[]>([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<EditingState | null>(null);
+
+  const existingKeys = useMemo(() => sections.map((s) => s.key), [sections]);
+
+  const availableKeysForCreate = useMemo(
+    () => getAvailableSectionKeys(page, existingKeys),
+    [page, existingKeys]
+  );
+
+  const keyOptionsWhileEditing = useMemo(() => {
+    if (!editing) return [];
+    // When editing, keep current key selectable; exclude other existing keys
+    return getAvailableSectionKeys(editing.page, existingKeys, editing.key);
+  }, [editing, existingKeys]);
+
+  const selectedKeyMeta = useMemo(() => {
+    if (!editing?.key) return null;
+    return getSectionKeysForPage(editing.page).find((o) => o.value === editing.key) || null;
+  }, [editing]);
 
   const fetchSections = async () => {
     setLoading(true);
@@ -67,21 +86,28 @@ export default function ContentPage() {
 
   useEffect(() => {
     fetchSections();
+    setEditing(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const startCreate = () => {
-    setEditing({
-      page,
-      key: "",
-      title: "",
-      subtitle: "",
-      badge_text: "",
-      body_html: "",
-      image_url: "",
-      cta_label: "",
-      cta_url: "",
+    if (availableKeysForCreate.length === 0) {
+      addToast({
+        type: "info",
+        message: `All sections for ${currentPageLabel} already exist. Edit an existing one instead.`,
+      });
+      return;
+    }
+
+    const first = availableKeysForCreate[0];
+    const filled = applySectionDefaults(page, first.value, {
       display_order: sections.length,
       is_active: true,
+    });
+    setEditing({
+      page,
+      key: first.value,
+      ...filled,
     });
   };
 
@@ -110,7 +136,13 @@ export default function ContentPage() {
     if (!editing) return;
 
     if (!editing.page || !editing.key) {
-      addToast({ type: "error", message: "Page and key are required" });
+      addToast({ type: "error", message: "Page and section are required" });
+      return;
+    }
+
+    const allowed = getSectionKeysForPage(editing.page).some((o) => o.value === editing.key);
+    if (!allowed) {
+      addToast({ type: "error", message: "Invalid section for this page" });
       return;
     }
 
@@ -170,7 +202,7 @@ export default function ContentPage() {
   };
 
   const currentPageLabel =
-    PAGE_OPTIONS.find((p) => p.value === page)?.label || page;
+    CONTENT_PAGES.find((p) => p.value === page)?.label || page;
 
   return (
     <div>
@@ -182,9 +214,14 @@ export default function ContentPage() {
           { label: "Site Content" },
         ]}
         actions={
-          <Button onClick={startCreate}>
+          <Button onClick={startCreate} disabled={availableKeysForCreate.length === 0}>
             <Plus className="h-4 w-4" />
             New Section
+            {availableKeysForCreate.length > 0 && (
+              <span className="ml-1 text-xs opacity-80">
+                ({availableKeysForCreate.length} left)
+              </span>
+            )}
           </Button>
         }
       />
@@ -194,9 +231,10 @@ export default function ContentPage() {
         <CardContent className="py-4 flex flex-wrap items-center gap-3">
           <span className="text-sm text-gray-600">Page:</span>
           <div className="flex flex-wrap gap-2">
-            {PAGE_OPTIONS.map((p) => (
+            {CONTENT_PAGES.map((p) => (
               <button
                 key={p.value}
+                type="button"
                 onClick={() => setPage(p.value)}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                   page === p.value
@@ -208,6 +246,9 @@ export default function ContentPage() {
               </button>
             ))}
           </div>
+          <span className="text-xs text-gray-500 ml-auto">
+            {sections.length}/{getSectionKeysForPage(page).length} sections
+          </span>
         </CardContent>
       </Card>
 
@@ -219,7 +260,7 @@ export default function ContentPage() {
               <thead className="border-b border-gray-200 bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">
-                    Key
+                    Section
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">
                     Title
@@ -257,7 +298,8 @@ export default function ContentPage() {
                       colSpan={7}
                       className="px-4 py-8 text-center text-gray-500"
                     >
-                      No sections configured for {currentPageLabel} yet.
+                      No sections configured for {currentPageLabel} yet. Click
+                      New Section to add one.
                     </td>
                   </tr>
                 ) : (
@@ -266,8 +308,13 @@ export default function ContentPage() {
                       key={section.id}
                       className="border-t border-gray-100 hover:bg-gray-50"
                     >
-                      <td className="px-4 py-3 font-mono text-xs text-gray-700">
-                        {section.key}
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-800">
+                          {getSectionLabel(section.page, section.key)}
+                        </div>
+                        <div className="font-mono text-xs text-gray-500">
+                          {section.key}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-800">
                         {section.title || "-"}
@@ -316,7 +363,7 @@ export default function ContentPage() {
         </CardContent>
       </Card>
 
-      {/* Edit / Create Drawer (simple inline card) */}
+      {/* Edit / Create form */}
       {editing && (
         <Card className="mt-6 border-primary-200 shadow-md">
           <CardContent className="py-4">
@@ -328,6 +375,7 @@ export default function ContentPage() {
                 </h2>
               </div>
               <button
+                type="button"
                 onClick={cancelEdit}
                 className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
@@ -340,25 +388,57 @@ export default function ContentPage() {
                 <label className="mb-1 block text-xs font-medium text-gray-600">
                   Page
                 </label>
-                <Input
-                  value={editing.page}
-                  onChange={(e) =>
-                    setEditing({ ...editing, page: e.target.value })
-                  }
-                  placeholder="e.g. home, treks, expeditions"
-                />
+                <Select value={editing.page} disabled>
+                  {CONTENT_PAGES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Switch page using the tabs above, then click New Section.
+                </p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Key
+                  Section
                 </label>
-                <Input
+                <Select
                   value={editing.key}
-                  onChange={(e) =>
-                    setEditing({ ...editing, key: e.target.value })
-                  }
-                  placeholder="e.g. hero, why_us, safety"
-                />
+                  disabled={!!editing.id}
+                  onChange={(e) => {
+                    const nextKey = e.target.value;
+                    // Only pre-fill defaults when creating (not when editing existing)
+                    if (editing.id) {
+                      setEditing({ ...editing, key: nextKey });
+                      return;
+                    }
+                    const filled = applySectionDefaults(editing.page, nextKey, {
+                      display_order: editing.display_order,
+                      is_active: editing.is_active,
+                    });
+                    setEditing({
+                      ...editing,
+                      key: nextKey,
+                      ...filled,
+                    });
+                  }}
+                >
+                  {keyOptionsWhileEditing.length === 0 ? (
+                    <option value="">No sections available</option>
+                  ) : (
+                    keyOptionsWhileEditing.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))
+                  )}
+                </Select>
+                {selectedKeyMeta?.hint && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    {selectedKeyMeta.hint}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600">
@@ -466,7 +546,7 @@ export default function ContentPage() {
 
             <div className="mt-4">
               <label className="mb-1 block text-xs font-medium text-gray-600">
-                Body HTML (optional)
+                Body HTML / JSON (optional)
               </label>
               <Textarea
                 value={editing.body_html || ""}
@@ -474,7 +554,7 @@ export default function ContentPage() {
                   setEditing({ ...editing, body_html: e.target.value })
                 }
                 rows={6}
-                placeholder="Rich content, HTML allowed. For advanced layouts you can paste HTML from your editor."
+                placeholder='HTML or JSON depending on section. Example for hero: {"highlight_word":"Himalayan"}'
               />
             </div>
 
@@ -483,7 +563,7 @@ export default function ContentPage() {
                 <X className="h-4 w-4" />
                 Cancel
               </Button>
-              <Button onClick={handleSave}>
+              <Button onClick={handleSave} disabled={!editing.key}>
                 <Save className="h-4 w-4" />
                 Save Section
               </Button>
@@ -494,4 +574,3 @@ export default function ContentPage() {
     </div>
   );
 }
-

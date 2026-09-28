@@ -98,6 +98,8 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
       status: trek?.status || "draft",
       featured: trek?.featured || false,
       location: trek?.location || "",
+      start_point: trek?.start_point || "",
+      end_point: trek?.end_point || "",
       best_season: trek?.best_season || [],
       group_size_min: trek?.group_size_min || 1,
       group_size_max: trek?.group_size_max || 10,
@@ -408,7 +410,28 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
                 >
                   <Input
                     {...register("location")}
-                    placeholder="e.g., Himalayas, Nepal"
+                    placeholder="e.g., Himachal Pradesh, India"
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  label="Start point"
+                  error={errors.start_point?.message}
+                >
+                  <Input
+                    {...register("start_point")}
+                    placeholder="e.g., Kinnaur"
+                  />
+                </FormField>
+                <FormField
+                  label="End point"
+                  error={errors.end_point?.message}
+                >
+                  <Input
+                    {...register("end_point")}
+                    placeholder="e.g., Spiti Valley"
                   />
                 </FormField>
               </div>

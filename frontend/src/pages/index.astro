@@ -10,12 +10,13 @@ import ExpeditionList from '@/components/expedition/ExpeditionList.astro';
 import CTA from '@/components/sections/CTA.astro';
 
 import { treksApi, expeditionsApi, api } from '@/lib/api';
+import type { Trek, Expedition } from '@/lib/types';
 
 // Enable SSR for dynamic data fetching
 export const prerender = false;
 
 // Fetch featured treks from API only (no mock fallback)
-let featuredTreks = [];
+let featuredTreks: Trek[] = [];
 try {
   featuredTreks = await treksApi.getFeatured(6);
 } catch (error) {
@@ -23,7 +24,7 @@ try {
 }
 
 // Fetch expeditions from API for home page (no mock fallback)
-let homeExpeditions = [];
+let homeExpeditions: Expedition[] = [];
 try {
   const expRes = await expeditionsApi.list({ status: 'published', limit: 2 });
   homeExpeditions = expRes.items || [];
@@ -32,7 +33,7 @@ try {
 }
 
 // Fetch budget treks (max price 10000)
-let budgetTreks = [];
+let budgetTreks: Trek[] = [];
 try {
   const budgetRes = await treksApi.list({ maxPrice: 10000, limit: 4 });
   budgetTreks = budgetRes.items || [];

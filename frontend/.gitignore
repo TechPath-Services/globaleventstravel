@@ -42,3 +42,6 @@ Thumbs.db
 # Cache
 .cache/
 
+# Local agent / debug screenshots
+.tmp-screenshots/
+

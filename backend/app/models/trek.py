@@ -3,7 +3,7 @@ Trek Pydantic schemas for request/response validation.
 """
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from app.models.batch import TrekBatchResponse
 
 
@@ -123,6 +123,8 @@ class TrekBase(BaseModel):
     status: str = Field(default="draft", pattern="^(draft|published|archived|seasonal)$")
     featured: bool = False
     location: str = Field(..., min_length=1)
+    start_point: Optional[str] = Field(None, max_length=120)
+    end_point: Optional[str] = Field(None, max_length=120)
     best_season: List[str] = Field(default_factory=list)
     group_size_min: int = Field(default=1, ge=1)
     group_size_max: int = Field(default=15, ge=1)
@@ -136,6 +138,14 @@ class TrekBase(BaseModel):
     meta_keywords: Optional[List[str]] = None
     map_embed: Optional[str] = None
     itinerary_pdf_url: Optional[str] = None
+
+    @field_validator("start_point", "end_point", mode="before")
+    @classmethod
+    def blank_route_to_none(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = str(value).strip()
+        return stripped or None
 
 
 class TrekCreate(TrekBase):
@@ -164,6 +174,8 @@ class TrekUpdate(BaseModel):
     status: Optional[str] = Field(None, pattern="^(draft|published|archived|seasonal)$")
     featured: Optional[bool] = None
     location: Optional[str] = None
+    start_point: Optional[str] = Field(None, max_length=120)
+    end_point: Optional[str] = Field(None, max_length=120)
     best_season: Optional[List[str]] = None
     group_size_min: Optional[int] = Field(None, ge=1)
     group_size_max: Optional[int] = Field(None, ge=1)
@@ -183,6 +195,14 @@ class TrekUpdate(BaseModel):
     itinerary: Optional[List[ItineraryDayCreate]] = None
     faqs: Optional[List[TrekFAQCreate]] = None
 
+    @field_validator("start_point", "end_point", mode="before")
+    @classmethod
+    def blank_route_to_none(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = str(value).strip()
+        return stripped or None
+
 
 class TrekResponse(BaseModel):
     """Schema for trek response."""
@@ -201,6 +221,8 @@ class TrekResponse(BaseModel):
     status: str
     featured: bool
     location: str
+    start_point: Optional[str] = None
+    end_point: Optional[str] = None
     best_season: List[str]
     group_size_min: int
     group_size_max: int

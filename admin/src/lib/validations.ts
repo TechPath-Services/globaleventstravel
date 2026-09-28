@@ -142,6 +142,8 @@ export const trekSchema = z.object({
   status: z.enum(["draft", "published", "archived", "seasonal"]),
   featured: z.boolean().default(false),
   location: z.string().min(1, "Location is required"),
+  start_point: z.string().max(120, "Start point is too long").optional().or(z.literal("")),
+  end_point: z.string().max(120, "End point is too long").optional().or(z.literal("")),
   best_season: z.array(z.string()).min(1, "At least one best season is required"),
   group_size_min: z.number().min(1, "Minimum group size must be at least 1"),
   group_size_max: z.number().min(1, "Maximum group size must be at least 1"),
