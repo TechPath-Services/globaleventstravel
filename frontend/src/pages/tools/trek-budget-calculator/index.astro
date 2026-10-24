@@ -1,0 +1,116 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import BudgetCalculator from '@/components/tools/BudgetCalculator';
+import {
+  breadcrumbJsonLd,
+  faqJsonLd,
+  graph,
+  loadCities,
+  loadCityDetails,
+  loadSettings,
+  loadTreks,
+} from '@/lib/marketing/server';
+import { DEFAULT_SETTINGS_FALLBACK } from '@/lib/marketing/defaults';
+
+export const prerender = false;
+
+const [settings, treks, citySummaries] = await Promise.all([loadSettings(), loadTreks('all'), loadCities()]);
+const cityDetails = await loadCityDetails(citySummaries);
+const cities = cityDetails.map((c) => ({ slug: c.slug, name: c.name, routes: c.routes }));
+const calculator = settings?.calculator ?? DEFAULT_SETTINGS_FALLBACK.calculator;
+const student = settings?.student_discount ?? DEFAULT_SETTINGS_FALLBACK.student_discount;
+const enabled = calculator.enabled && treks.length > 0;
+
+const pageUrl = new URL('/tools/trek-budget-calculator/', Astro.url.origin).href;
+const embedUrl = new URL('/tools/trek-budget-calculator/embed/', Astro.url.origin).href;
+const embedSnippet = `<iframe src="${embedUrl}" width="100%" height="900" style="border:0;max-width:720px" loading="lazy" title="Trek budget calculator"></iframe>\n<p><a href="${pageUrl}">Trek budget calculator</a> by Global Events Travels</p>`;
+
+const faqs = [
+  {
+    question: "What's not included in a trek package?",
+    answer: 'Usually travel to the pickup point, hotel nights before or after the trek, personal gear, backpack offloading and insurance. This calculator adds all of them so you see the real total.',
+  },
+  {
+    question: 'Is it cheaper to rent or buy trekking gear for one trek?',
+    answer: 'For a single trek, renting expensive items like down jackets is almost always cheaper. Switch any gear item between own, rent and buy to compare.',
+  },
+  {
+    question: 'How accurate are the travel fares?',
+    answer: 'Fares come from routes our team has verified for each departure city, shown as the midpoint of the current range. Bus and train prices change, so treat them as estimates.',
+  },
+];
+
+const structuredData = graph(
+  {
+    '@type': 'WebApplication',
+    name: 'Trek budget calculator',
+    applicationCategory: 'TravelApplication',
+    operatingSystem: 'Any',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
+    url: pageUrl,
+  },
+  faqJsonLd(faqs),
+  breadcrumbJsonLd(Astro.url.origin, [
+    { name: 'Home', path: '/' },
+    { name: 'Trek planning tools', path: '/tools/' },
+    { name: 'Trek budget calculator', path: '/tools/trek-budget-calculator/' },
+  ]),
+);
+---
+
+<MainLayout
+  title="Trek Budget Calculator: Real All-in Cost of Himalayan Treks"
+  description="Package price is only part of it. Add travel from your city, hotel nights, gear and extras to see the real cost of your trek, per person and for your group."
+  structuredData={structuredData}
+>
+  <section class="bg-gradient-to-br from-secondary-700 to-secondary-500 py-12 md:py-16">
+    <div class="container-custom text-white">
+      <h1 class="mb-3 text-4xl font-bold text-white md:text-5xl">What will your trek really cost?</h1>
+      <p class="max-w-2xl text-lg text-white/85">
+        Package, travel from your city, stays, gear and extras in one honest breakdown. Share it with your group in one tap.
+      </p>
+    </div>
+  </section>
+
+  <section class="section-sm bg-neutral-50">
+    <div class="container-custom">
+      {enabled ? (
+        <BudgetCalculator
+          client:load
+          treks={treks}
+          cities={cities}
+          calculator={calculator}
+          student={student}
+          initialQuery={Astro.url.search}
+          fullUrl={pageUrl}
+        />
+      ) : (
+        <div class="rounded-xl bg-white p-8 text-center shadow">
+          <p class="text-lg font-semibold">The calculator is being updated.</p>
+          <a href="/contact" class="btn-primary mt-4">Ask us for a quote</a>
+        </div>
+      )}
+    </div>
+  </section>
+
+  <section class="section bg-white">
+    <div class="container-custom grid gap-10 lg:grid-cols-2">
+      <div>
+        <h2 class="mb-6 text-3xl font-bold">Common questions</h2>
+        <div class="space-y-3">
+          {faqs.map((faq) => (
+            <details class="rounded-xl border border-neutral-200 p-5">
+              <summary class="cursor-pointer list-none font-semibold text-neutral-900">{faq.question}</summary>
+              <p class="mt-3 text-neutral-700">{faq.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h2 class="mb-3 text-3xl font-bold">Add this calculator to your site</h2>
+        <p class="mb-4 text-neutral-700">Writing a trek guide or running a trekking club? Embed the calculator for free. Please keep the credit link.</p>
+        <pre class="overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-neutral-900 p-4 text-xs text-neutral-100"><code>{embedSnippet}</code></pre>
+      </div>
+    </div>
+  </section>
+</MainLayout>

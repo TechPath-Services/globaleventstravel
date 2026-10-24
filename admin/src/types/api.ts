@@ -252,6 +252,11 @@ export interface Trek {
   meta_keywords?: string[];
   map_embed?: string;
   itinerary_pdf_url?: string;
+  pickup_city?: string | null;
+  pickup_time?: string | null;
+  quiz_tags?: string[] | null;
+  quiz_persona?: string | null;
+  quiz_share_line?: string | null;
   itinerary: ItineraryDay[];
   faqs?: TrekFAQ[];
   batches?: TrekBatch[];
@@ -311,6 +316,11 @@ export interface TrekCreate {
   meta_keywords?: string[];
   map_embed?: string;
   itinerary_pdf_url?: string;
+  pickup_city?: string;
+  pickup_time?: string;
+  quiz_tags?: string[];
+  quiz_persona?: string;
+  quiz_share_line?: string;
   rating?: number;
   review_count?: number;
   itinerary?: ItineraryDayCreate[];
@@ -503,6 +513,7 @@ export interface LeadListItem {
   source: string;
   status: LeadStatus;
   itinerary_sent: boolean;
+  notes?: string | null;
   created_at: string;
 }
 

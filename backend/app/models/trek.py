@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 from app.models.batch import TrekBatchResponse
+from app.models.marketing import validate_quiz_tags
 
 
 # ============================================
@@ -138,14 +139,27 @@ class TrekBase(BaseModel):
     meta_keywords: Optional[List[str]] = None
     map_embed: Optional[str] = None
     itinerary_pdf_url: Optional[str] = None
+    pickup_city: Optional[str] = Field(None, max_length=120)
+    pickup_time: Optional[str] = Field(None, max_length=50)
+    quiz_tags: Optional[List[str]] = None
+    quiz_persona: Optional[str] = Field(None, max_length=120)
+    quiz_share_line: Optional[str] = Field(None, max_length=255)
 
-    @field_validator("start_point", "end_point", mode="before")
+    @field_validator(
+        "start_point", "end_point", "pickup_city", "pickup_time", "quiz_persona",
+        "quiz_share_line", mode="before",
+    )
     @classmethod
     def blank_route_to_none(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         stripped = str(value).strip()
         return stripped or None
+
+    @field_validator("quiz_tags")
+    @classmethod
+    def known_quiz_tags(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        return validate_quiz_tags(value)
 
 
 class TrekCreate(TrekBase):
@@ -189,19 +203,32 @@ class TrekUpdate(BaseModel):
     meta_keywords: Optional[List[str]] = None
     map_embed: Optional[str] = None
     itinerary_pdf_url: Optional[str] = None
+    pickup_city: Optional[str] = Field(None, max_length=120)
+    pickup_time: Optional[str] = Field(None, max_length=50)
+    quiz_tags: Optional[List[str]] = None
+    quiz_persona: Optional[str] = Field(None, max_length=120)
+    quiz_share_line: Optional[str] = Field(None, max_length=255)
     rating: Optional[float] = Field(None, ge=0.0, le=5.0)
     review_count: Optional[int] = Field(None, ge=0)
     guide_id: Optional[int] = None
     itinerary: Optional[List[ItineraryDayCreate]] = None
     faqs: Optional[List[TrekFAQCreate]] = None
 
-    @field_validator("start_point", "end_point", mode="before")
+    @field_validator(
+        "start_point", "end_point", "pickup_city", "pickup_time", "quiz_persona",
+        "quiz_share_line", mode="before",
+    )
     @classmethod
     def blank_route_to_none(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         stripped = str(value).strip()
         return stripped or None
+
+    @field_validator("quiz_tags")
+    @classmethod
+    def known_quiz_tags(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        return validate_quiz_tags(value)
 
 
 class TrekResponse(BaseModel):
@@ -236,6 +263,11 @@ class TrekResponse(BaseModel):
     meta_keywords: Optional[List[str]] = None
     map_embed: Optional[str] = None
     itinerary_pdf_url: Optional[str] = None
+    pickup_city: Optional[str] = None
+    pickup_time: Optional[str] = None
+    quiz_tags: Optional[List[str]] = None
+    quiz_persona: Optional[str] = None
+    quiz_share_line: Optional[str] = None
     rating: float
     review_count: int
     guide_id: Optional[int] = None
@@ -274,6 +306,8 @@ class TrekListResponse(BaseModel):
     featured: bool
     location: str
     best_season: List[str] = Field(default_factory=list)
+    pickup_city: Optional[str] = None
+    quiz_tags: Optional[List[str]] = None
     rating: float
     review_count: int
     created_at: datetime

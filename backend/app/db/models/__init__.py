@@ -20,6 +20,7 @@ from app.db.models.email_log import EmailLog
 from app.db.models.site_settings import SiteSettings
 from app.db.models.google_review import GoogleReview
 from app.db.models.google_reviews_meta import GoogleReviewsMeta
+from app.db.models.marketing import MarketingSettings, DepartureCity, CityRoute
 
 __all__ = [
     "Trek",
@@ -48,5 +49,8 @@ __all__ = [
     "SiteSettings",
     "GoogleReview",
     "GoogleReviewsMeta",
+    "MarketingSettings",
+    "DepartureCity",
+    "CityRoute",
 ]
 

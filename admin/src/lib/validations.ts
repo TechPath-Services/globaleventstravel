@@ -165,6 +165,11 @@ export const trekSchema = z.object({
   meta_keywords: z.array(z.string()).optional(),
   map_embed: z.string().optional().or(z.literal("")),
   itinerary_pdf_url: z.string().url("Invalid PDF URL").optional().or(z.literal("")),
+  pickup_city: z.string().max(120, "Pickup city is too long").optional().or(z.literal("")),
+  pickup_time: z.string().max(50, "Pickup time is too long").optional().or(z.literal("")),
+  quiz_tags: z.array(z.string()).optional(),
+  quiz_persona: z.string().max(120, "Persona is too long").optional().or(z.literal("")),
+  quiz_share_line: z.string().max(255, "Share line is too long").optional().or(z.literal("")),
   rating: z.number().min(0, "Rating cannot be less than 0").max(5, "Rating cannot exceed 5").optional().default(0),
   review_count: z.number().min(0, "Review count cannot be negative").optional().default(0),
   itinerary: z.array(itineraryDaySchema).optional(),
@@ -178,6 +183,66 @@ export const trekSchema = z.object({
 );
 
 export type TrekFormData = z.infer<typeof trekSchema>;
+
+// ============================================
+// Departure City ("Treks from [city]") Schemas
+// ============================================
+
+export const cityRouteSchema = z
+  .object({
+    to_base: z.string().min(1, "Destination (pickup base) is required").max(120),
+    mode: z.enum([
+      "group_departure",
+      "volvo_bus",
+      "ordinary_bus",
+      "train",
+      "flight",
+      "shared_cab",
+      "taxi",
+    ]),
+    operator: z.string().max(255).optional().or(z.literal("")),
+    departure_point: z.string().max(255).optional().or(z.literal("")),
+    departure_time: z.string().max(120).optional().or(z.literal("")),
+    duration_hours: z.number().min(0, "0–96 hours").max(96, "0–96 hours").nullable(),
+    fare_min: z.number().min(0, "Cannot be negative").nullable(),
+    fare_max: z.number().min(0, "Cannot be negative").nullable(),
+    notes: z.string().max(500).optional().or(z.literal("")),
+    source: z.string().max(500).optional().or(z.literal("")),
+  })
+  .refine((r) => r.fare_min === null || r.fare_max === null || r.fare_max >= r.fare_min, {
+    message: "Max fare must be at least the min fare",
+    path: ["fare_max"],
+  });
+
+export const departureCitySchema = z.object({
+  name: z.string().min(1, "City name is required").max(120),
+  slug: z.string().regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers and hyphens only"),
+  state: z.string().max(120).optional().or(z.literal("")),
+  display_order: z.number().int().min(0),
+  hero_image: z.string().url("Invalid image URL").optional().or(z.literal("")),
+  intro_html: z.string().optional().or(z.literal("")),
+  local_tips: z.array(z.object({ value: z.string() })),
+  faqs: z.array(
+    z.object({
+      question: z.string().min(1, "Question is required").max(500),
+      answer: z.string().min(1, "Answer is required"),
+    })
+  ),
+  meta_title: z.string().max(70, "Keep under 70 characters").optional().or(z.literal("")),
+  meta_description: z.string().max(160, "Keep under 160 characters").optional().or(z.literal("")),
+  last_verified: z.string().optional().or(z.literal("")),
+  verified_by: z.string().max(120).optional().or(z.literal("")),
+  is_published: z.boolean(),
+  routes: z.array(cityRouteSchema),
+});
+
+export type DepartureCityFormData = z.infer<typeof departureCitySchema>;
+
+/** For react-hook-form `setValueAs`: empty number inputs become null instead of NaN. */
+export const numberOrNull = (value: unknown): number | null =>
+  value === "" || value === null || value === undefined || Number.isNaN(Number(value))
+    ? null
+    : Number(value);
 
 // Status transition validation
 export const validateStatusTransition = (

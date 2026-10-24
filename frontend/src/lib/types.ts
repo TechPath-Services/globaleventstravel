@@ -35,6 +35,11 @@ export interface Trek {
   meta_description?: string;
   meta_keywords?: string[];
   map_embed?: string;
+  pickup_city?: string | null;
+  pickup_time?: string | null;
+  quiz_tags?: string[] | null;
+  quiz_persona?: string | null;
+  quiz_share_line?: string | null;
   images?: TrekImage[];
   itinerary?: ItineraryDay[];
   faqs?: TrekFAQ[];
@@ -291,5 +296,174 @@ export interface BlogTag {
   name: string;
   slug: string;
   post_count?: number;
+}
+
+// ============================================
+// Marketing tools (quiz, calculator, student discount, city pages)
+// ============================================
+
+export interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+export interface GearItem {
+  key: string;
+  label: string;
+  rent_price: number | null;
+  buy_price: number | null;
+  keywords: string[];
+}
+
+export interface StudentDiscountSettings {
+  enabled: boolean;
+  percent: number;
+  cap_inr: number | null;
+  group_bonus_enabled: boolean;
+  group_min_size: number;
+  group_bonus_inr: number;
+  verification_time_text: string;
+  terms: string[];
+  faqs: FAQItem[];
+}
+
+export interface QuizSettings {
+  enabled: boolean;
+  title: string;
+  subtitle: string;
+  season_months: string[];
+}
+
+export interface CalculatorSettings {
+  enabled: boolean;
+  price_includes_gst: boolean;
+  gst_percent: number;
+  hotel_budget_per_night: number | null;
+  hotel_mid_per_night: number | null;
+  hotel_comfort_per_night: number | null;
+  food_per_travel_day: number | null;
+  offloading_per_day: number | null;
+  insurance_per_person: number | null;
+  buffer_percent: number;
+  gear_items: GearItem[];
+  prices_last_checked: string | null;
+}
+
+export interface CityPageRules {
+  max_age_days: number;
+  min_routes: number;
+  min_tips: number;
+  min_faqs: number;
+  min_intro_chars: number;
+}
+
+export interface MarketingSettings {
+  student_discount: StudentDiscountSettings;
+  quiz: QuizSettings;
+  calculator: CalculatorSettings;
+  city_pages: CityPageRules;
+  quiz_tag_options: Record<string, string>;
+  route_modes: string[];
+  updated_at: string | null;
+}
+
+export interface MarketingBatch {
+  id: number;
+  start_date: string;
+  end_date: string;
+  price: number;
+  available_seats: number;
+  is_sold_out: boolean;
+}
+
+export interface MarketingTrek {
+  id: number;
+  name: string;
+  slug: string;
+  short_description?: string | null;
+  difficulty: Difficulty;
+  duration: number;
+  max_altitude: number;
+  price: number;
+  featured_image?: string | null;
+  location: string;
+  region?: string | null;
+  best_season: string[];
+  pickup_city?: string | null;
+  pickup_time?: string | null;
+  quiz_tags: string[];
+  quiz_persona?: string | null;
+  quiz_share_line?: string | null;
+  rating: number;
+  review_count: number;
+  includes: string[];
+  equipment_list: string[];
+  upcoming_batches: MarketingBatch[];
+}
+
+export type RouteMode =
+  | 'group_departure'
+  | 'volvo_bus'
+  | 'ordinary_bus'
+  | 'train'
+  | 'flight'
+  | 'shared_cab'
+  | 'taxi';
+
+export interface CityRoute {
+  id: number;
+  to_base: string;
+  mode: RouteMode;
+  operator: string | null;
+  departure_point: string | null;
+  departure_time: string | null;
+  duration_hours: number | null;
+  fare_min: number | null;
+  fare_max: number | null;
+  notes: string | null;
+  source: string | null;
+  display_order: number;
+}
+
+export interface DepartureCitySummary {
+  id: number;
+  name: string;
+  slug: string;
+  state: string | null;
+  hero_image: string | null;
+  meta_description: string | null;
+  is_published: boolean;
+  display_order: number;
+  last_verified: string | null;
+  verified_by: string | null;
+  is_stale: boolean;
+  route_count: number;
+  bases: string[];
+  quality_issues: string[];
+  updated_at: string;
+}
+
+export interface DepartureCity {
+  id: number;
+  name: string;
+  slug: string;
+  state: string | null;
+  display_order: number;
+  hero_image: string | null;
+  intro_html: string | null;
+  local_tips: string[];
+  faqs: FAQItem[];
+  meta_title: string | null;
+  meta_description: string | null;
+  last_verified: string | null;
+  verified_by: string | null;
+  is_published: boolean;
+  is_stale: boolean;
+  bases: string[];
+  quality_issues: string[];
+  routes: CityRoute[];
+  reachable_treks: MarketingTrek[];
+  published_at: string | null;
+  updated_at: string;
 }
 

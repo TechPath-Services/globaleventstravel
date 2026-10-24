@@ -37,8 +37,10 @@ import {
   HelpCircle,
   Map,
   CalendarDays,
+  Megaphone,
 } from "lucide-react";
 import BatchManager from "@/components/forms/BatchManager";
+import { marketingService } from "@/services/marketing.service";
 
 interface TrekFormProps {
   trek?: Trek;
@@ -113,6 +115,11 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
       meta_keywords: trek?.meta_keywords || [],
       map_embed: trek?.map_embed || "",
       itinerary_pdf_url: trek?.itinerary_pdf_url || "",
+      pickup_city: trek?.pickup_city || "",
+      pickup_time: trek?.pickup_time || "",
+      quiz_tags: trek?.quiz_tags || [],
+      quiz_persona: trek?.quiz_persona || "",
+      quiz_share_line: trek?.quiz_share_line || "",
       rating: trek?.rating || 0,
       review_count: trek?.review_count || 0,
       itinerary: trek?.itinerary?.map(day => ({
@@ -161,6 +168,28 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
   const name = watch("name");
   const difficulty = watch("difficulty");
   const duration = watch("duration");
+
+  const [quizTagOptions, setQuizTagOptions] = useState<Record<string, string>>({});
+  const [pickupSuggestions, setPickupSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([marketingService.getSettings(), marketingService.listCities()]).then(
+      ([settingsResult, citiesResult]) => {
+        if (cancelled) return;
+        if (settingsResult.status === "fulfilled") {
+          setQuizTagOptions(settingsResult.value.quiz_tag_options);
+        }
+        if (citiesResult.status === "fulfilled") {
+          const bases = citiesResult.value.flatMap((c) => c.bases);
+          setPickupSuggestions(Array.from(new Set(bases)).sort());
+        }
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-generate slug from name
   useEffect(() => {
@@ -217,6 +246,7 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
     { id: "map", label: "Map", icon: Map },
     { id: "media", label: "Media", icon: Camera },
     { id: "seo", label: "SEO", icon: Eye },
+    { id: "marketing", label: "Marketing", icon: Megaphone },
   ];
 
   return (
@@ -231,6 +261,9 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
               if (tab.id === "itinerary") return key.startsWith("itinerary");
               if (tab.id === "details") return ["duration", "price", "group_size_min", "group_size_max"].includes(key);
               if (tab.id === "seo") return ["meta_title", "meta_description"].includes(key);
+              if (tab.id === "marketing") {
+                return ["pickup_city", "pickup_time", "quiz_tags", "quiz_persona", "quiz_share_line"].includes(key);
+              }
               return false;
             });
 
@@ -1254,6 +1287,104 @@ export function TrekForm({ trek, onSubmit, isLoading, mode }: TrekFormProps) {
                       placeholder="himalaya trekking&#10;mountain adventure&#10;nepal trek"
                     />
                   )}
+                />
+              </FormField>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Marketing Tab */}
+      {activeTab === "marketing" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Pickup &amp; city pages</h3>
+              <p className="text-sm text-gray-600">
+                The pickup city links this trek to verified routes on the &quot;Treks from [city]&quot; pages and the budget calculator.
+              </p>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormField
+                label="Pickup city"
+                error={errors.pickup_city?.message}
+                hint="Must match a route destination exactly, e.g. Dehradun"
+              >
+                <Input {...register("pickup_city")} list="pickup-city-suggestions" placeholder="e.g., Dehradun" />
+                <datalist id="pickup-city-suggestions">
+                  {pickupSuggestions.map((base) => (
+                    <option key={base} value={base} />
+                  ))}
+                </datalist>
+              </FormField>
+              <FormField label="Pickup time" error={errors.pickup_time?.message} hint="Shown on city pages and quiz results">
+                <Input {...register("pickup_time")} placeholder="e.g., 6:00 AM" />
+              </FormField>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Trek finder quiz</h3>
+              <p className="text-sm text-gray-600">
+                Published treks whose best season overlaps the quiz months appear in the quiz automatically.
+                Tags decide which answers this trek matches; if none are set, tags are guessed from the name.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField label="What this trek is great for" error={errors.quiz_tags?.message}>
+                <Controller
+                  control={control}
+                  name="quiz_tags"
+                  render={({ field }) => (
+                    <div className="flex flex-wrap gap-2">
+                      {Object.keys(quizTagOptions).length === 0 && (
+                        <p className="text-sm text-gray-500">Loading tag options…</p>
+                      )}
+                      {Object.entries(quizTagOptions).map(([tag, tagLabel]) => {
+                        const selected = (field.value || []).includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() =>
+                              field.onChange(
+                                selected
+                                  ? (field.value || []).filter((t: string) => t !== tag)
+                                  : [...(field.value || []), tag]
+                              )
+                            }
+                            className={cn(
+                              "rounded-full border px-3 py-1 text-xs transition-colors",
+                              selected
+                                ? "border-primary-500 bg-primary-500 text-white"
+                                : "border-gray-300 bg-white text-gray-700 hover:border-primary-500"
+                            )}
+                          >
+                            {tagLabel}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                />
+              </FormField>
+              <FormField
+                label="Result persona"
+                error={errors.quiz_persona?.message}
+                hint='Shown as the quiz result headline, e.g. "The Sunrise Summiteer"'
+              >
+                <Input {...register("quiz_persona")} placeholder="The Sunrise Summiteer" maxLength={120} />
+              </FormField>
+              <FormField
+                label="Share line"
+                error={errors.quiz_share_line?.message}
+                hint="Pre-filled text when someone shares this result on WhatsApp"
+              >
+                <Input
+                  {...register("quiz_share_line")}
+                  placeholder="My first snow summit is waiting. I'm a Kedarkantha trekker."
+                  maxLength={255}
                 />
               </FormField>
             </CardContent>

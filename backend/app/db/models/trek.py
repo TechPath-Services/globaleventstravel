@@ -39,6 +39,14 @@ class Trek(Base):
     start_point: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     end_point: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     best_season: Mapped[str] = mapped_column(JSON, nullable=False, default=list)  # List of seasons
+
+    # Marketing: pickup base links the trek to "Treks from [city]" routes; quiz fields
+    # drive the trek-finder quiz (tags from app.models.marketing.QUIZ_TAGS)
+    pickup_city: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    pickup_time: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    quiz_tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    quiz_persona: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    quiz_share_line: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     
     # Group size
     group_size_min: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
