@@ -1,0 +1,258 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import TrekCard from '@/components/trek/TrekCard.astro';
+import MarketingLeadForm from '@/components/tools/MarketingLeadForm';
+import { citiesApi } from '@/lib/api';
+import type { CityRoute, DepartureCity } from '@/lib/types';
+import { studentDiscountAmount, discountHeadline } from '@/lib/marketing/discount';
+import {
+  formatDate,
+  formatHours,
+  formatInrRange,
+  routeModeLabel,
+  sameBase,
+} from '@/lib/marketing/format';
+import { asTrekCard, breadcrumbJsonLd, faqJsonLd, graph, loadSettings } from '@/lib/marketing/server';
+
+export const prerender = false;
+
+const { city: slug } = Astro.params;
+const city: DepartureCity | null = slug ? await citiesApi.getBySlug(slug).catch(() => null) : null;
+if (!city) {
+  return Astro.redirect('/treks-from/');
+}
+
+const settings = await loadSettings();
+const student = settings?.student_discount;
+
+const groupDepartures = city.routes.filter((r) => r.mode === 'group_departure');
+const bases = city.bases.map((base) => ({
+  base,
+  routes: city.routes.filter((r) => sameBase(r.to_base, base)),
+  treks: city.reachable_treks.filter((t) => sameBase(t.pickup_city, base)),
+}));
+
+const fastest = (routes: CityRoute[]) =>
+  routes.find((r) => r.mode === 'group_departure') ??
+  [...routes].sort((a, b) => (a.duration_hours ?? 99) - (b.duration_hours ?? 99))[0];
+
+const headlineTrek = city.reachable_treks[0];
+const headlineRoute = headlineTrek
+  ? fastest(city.routes.filter((r) => sameBase(r.to_base, headlineTrek.pickup_city)))
+  : undefined;
+
+const headlineRouteText = headlineTrek && headlineRoute
+  ? [
+      `${routeModeLabel(headlineRoute.mode)}${headlineRoute.operator ? ` (${headlineRoute.operator})` : ''}`,
+      headlineRoute.departure_point ? `from ${headlineRoute.departure_point}` : '',
+      headlineRoute.departure_time ? `at ${headlineRoute.departure_time}` : '',
+    ].filter(Boolean).join(' ') +
+    [
+      headlineRoute.duration_hours ? `about ${formatHours(headlineRoute.duration_hours)}` : '',
+      formatInrRange(headlineRoute.fare_min, headlineRoute.fare_max) ?? '',
+    ].filter(Boolean).map((part) => `, ${part}`).join('') +
+    (headlineTrek.pickup_time
+      ? `, to make the ${headlineTrek.pickup_time} pickup in ${headlineTrek.pickup_city}.`
+      : ` to ${headlineTrek.pickup_city}.`)
+  : '';
+
+const studentSaving = student && headlineTrek ? studentDiscountAmount(headlineTrek.price, student) : 0;
+const pageTitle = city.meta_title || `Treks from ${city.name}: Routes, Timings & Costs`;
+const pageDescription =
+  city.meta_description ||
+  `How to reach Himalayan treks from ${city.name}: verified routes, fares, timings and our group departures.`;
+
+const structuredData = graph(
+  breadcrumbJsonLd(Astro.url.origin, [
+    { name: 'Home', path: '/' },
+    { name: 'Treks from your city', path: '/treks-from/' },
+    { name: city.name, path: `/treks-from/${city.slug}/` },
+  ]),
+  city.faqs.length > 0 && faqJsonLd(city.faqs),
+  city.reachable_treks.length > 0 && {
+    '@type': 'ItemList',
+    itemListElement: city.reachable_treks.map((t, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'TouristTrip',
+        name: t.name,
+        url: new URL(`/treks/${t.slug}`, Astro.url.origin).href,
+        offers: { '@type': 'Offer', price: t.price, priceCurrency: 'INR' },
+      },
+    })),
+  },
+);
+---
+
+<MainLayout title={pageTitle} description={pageDescription} ogImage={city.hero_image || undefined} structuredData={structuredData}>
+  <section class="relative overflow-hidden bg-secondary-700">
+    {city.hero_image && <img src={city.hero_image} alt="" class="absolute inset-0 h-full w-full object-cover opacity-25" loading="eager" />}
+    <div class="container-custom relative py-14 text-white md:py-20">
+      <nav class="mb-4 text-sm text-white/70"><a href="/treks-from/" class="text-white/80 hover:text-white">Treks from your city</a> / {city.name}</nav>
+      <h1 class="mb-3 text-4xl font-bold text-white md:text-5xl">Treks from {city.name}</h1>
+      {city.last_verified && (
+        <p class="text-white/80">Routes last verified {formatDate(city.last_verified)}{city.verified_by ? ` by ${city.verified_by}` : ''}</p>
+      )}
+    </div>
+  </section>
+
+  {city.is_stale && (
+    <div class="border-b border-amber-200 bg-amber-50">
+      <p class="container-custom py-3 text-sm text-amber-800">
+        We're re-checking timings and fares on this page. Confirm the latest on WhatsApp before you book tickets.
+      </p>
+    </div>
+  )}
+
+  <section class="section-sm bg-neutral-50">
+    <div class="container-custom grid gap-8 lg:grid-cols-3">
+      <div class="space-y-8 lg:col-span-2">
+        {headlineTrek && headlineRoute && (
+          <div class="rounded-xl border-l-4 border-primary-500 bg-white p-6 shadow-sm">
+            <p class="text-sm font-semibold uppercase tracking-wider text-primary-600">Quick answer</p>
+            <p class="mt-2 text-lg text-neutral-800">
+              Most popular from {city.name}: <a href={`/treks/${headlineTrek.slug}`} class="font-semibold">{headlineTrek.name}</a>. {headlineRouteText}
+            </p>
+            <div class="mt-4 flex flex-wrap gap-3">
+              <a href={`/tools/trek-budget-calculator/?trek=${headlineTrek.slug}&from=${city.slug}`} class="btn-primary">Plan my total cost</a>
+              <a href="#city-lead" class="btn-secondary">Get this route on WhatsApp</a>
+            </div>
+          </div>
+        )}
+
+        {groupDepartures.length > 0 && (
+          <div class="rounded-xl bg-gradient-to-br from-primary-50 to-white p-6 ring-1 ring-primary-200">
+            <h2 class="mb-2 text-2xl font-bold">Our group departures from {city.name}</h2>
+            <p class="mb-4 text-neutral-700">Travel with your trek group from day one. No separate bus booking.</p>
+            <ul class="space-y-3">
+              {groupDepartures.map((r) => (
+                <li class="rounded-lg bg-white p-4 text-sm ring-1 ring-neutral-200">
+                  <p class="font-semibold text-neutral-900">To {r.to_base}{r.departure_point ? ` · from ${r.departure_point}` : ''}</p>
+                  <p class="text-neutral-700">
+                    {[r.departure_time, formatHours(r.duration_hours), formatInrRange(r.fare_min, r.fare_max)].filter(Boolean).join(' · ')}
+                  </p>
+                  {r.notes && <p class="mt-1 text-neutral-600">{r.notes}</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {city.intro_html && (
+          <div class="prose prose-neutral max-w-none rounded-xl bg-white p-6" set:html={city.intro_html} />
+        )}
+
+        {bases.map(({ base, routes, treks }) => (
+          <div class="rounded-xl border border-neutral-200 bg-white p-6">
+            <h2 class="mb-1 text-2xl font-bold">{city.name} to {base}</h2>
+            <p class="mb-4 text-neutral-600">
+              {treks.length > 0
+                ? `Pickup point for ${treks.map((t) => `${t.name}${t.pickup_time ? ` (${t.pickup_time})` : ''}`).join(', ')}.`
+                : 'Pickup point for upcoming treks.'}
+            </p>
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[560px] text-left text-sm">
+                <thead class="text-neutral-500">
+                  <tr>
+                    <th class="py-2 pr-4 font-semibold">Option</th>
+                    <th class="py-2 pr-4 font-semibold">From</th>
+                    <th class="py-2 pr-4 font-semibold">Departs</th>
+                    <th class="py-2 pr-4 font-semibold">Takes</th>
+                    <th class="py-2 font-semibold">Fare (one way)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {routes.map((r) => (
+                    <tr class="border-t border-neutral-100 align-top">
+                      <td class="py-3 pr-4">
+                        <span class="font-medium text-neutral-900">{routeModeLabel(r.mode)}</span>
+                        {r.operator && <span class="block text-neutral-600">{r.operator}</span>}
+                        {r.notes && <span class="block text-xs text-neutral-500">{r.notes}</span>}
+                      </td>
+                      <td class="py-3 pr-4 text-neutral-700">{r.departure_point ?? '—'}</td>
+                      <td class="py-3 pr-4 text-neutral-700">{r.departure_time ?? '—'}</td>
+                      <td class="py-3 pr-4 text-neutral-700">{formatHours(r.duration_hours) ?? '—'}</td>
+                      <td class="py-3 font-medium text-neutral-900">{formatInrRange(r.fare_min, r.fare_max) ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {treks.length > 0 && (
+              <div class="mt-4 flex flex-wrap gap-2">
+                {treks.map((t) => (
+                  <a href={`/tools/trek-budget-calculator/?trek=${t.slug}&from=${city.slug}`} class="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:border-primary-400">
+                    {t.name}: total cost from {city.name} →
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {city.reachable_treks.length > 0 && (
+          <div>
+            <h2 class="mb-4 text-2xl font-bold">Treks you can reach from {city.name}</h2>
+            <div class="grid gap-6 md:grid-cols-2">
+              {city.reachable_treks.map((t) => <TrekCard trek={asTrekCard(t)} />)}
+            </div>
+          </div>
+        )}
+
+        {city.local_tips.length > 0 && (
+          <div class="rounded-xl border border-neutral-200 bg-white p-6">
+            <h2 class="mb-4 text-2xl font-bold">Tips from our {city.name} trekkers</h2>
+            <ul class="space-y-3 text-neutral-700">
+              {city.local_tips.map((tip) => <li class="flex gap-2"><span class="text-primary-500">●</span><span>{tip}</span></li>)}
+            </ul>
+          </div>
+        )}
+
+        {city.faqs.length > 0 && (
+          <div>
+            <h2 class="mb-4 text-2xl font-bold">Trekking from {city.name}: FAQ</h2>
+            <div class="space-y-3">
+              {city.faqs.map((faq) => (
+                <details class="rounded-xl border border-neutral-200 bg-white p-5">
+                  <summary class="cursor-pointer list-none font-semibold text-neutral-900">{faq.question}</summary>
+                  <p class="mt-3 text-neutral-700">{faq.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p class="text-sm text-neutral-500">
+          Bus and train timings change. We re-check this page regularly{city.last_verified ? ` (last on ${formatDate(city.last_verified)})` : ''}. Spotted something out of date? Tell us on WhatsApp.
+        </p>
+      </div>
+
+      <aside class="space-y-4">
+        <div class="lg:sticky lg:top-24 space-y-4">
+          {student && studentSaving > 0 && (
+            <a href="/student-discount/" class="block rounded-xl bg-green-50 p-5 ring-1 ring-green-200">
+              <p class="font-bold text-green-800">Students from {city.name} colleges</p>
+              <p class="text-sm text-green-900">{discountHeadline(student)} with a valid student ID →</p>
+            </a>
+          )}
+          <div id="city-lead" class="scroll-mt-24">
+            <MarketingLeadForm
+              client:idle
+              source={`city_${city.slug}`.slice(0, 50)}
+              title={`Plan your trek from ${city.name}`}
+              subtitle="Route, timings and dates on WhatsApp."
+              ctaLabel="Send me the plan"
+              successMessage="We'll WhatsApp you the best route and upcoming dates shortly."
+              trekChoices={city.reachable_treks.map((t) => ({ slug: t.slug, name: t.name }))}
+              notes={`City page: ${city.name}`}
+            />
+          </div>
+          <a href="/tools/winter-trek-quiz/" class="block rounded-xl border border-neutral-200 bg-white p-5 text-center font-semibold hover:border-primary-300">
+            Not sure which trek? Take the 60-second quiz →
+          </a>
+        </div>
+      </aside>
+    </div>
+  </section>
+</MainLayout>

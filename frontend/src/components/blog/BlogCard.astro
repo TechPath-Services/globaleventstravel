@@ -97,12 +97,14 @@ const tags = post.tags || [];
     )}
 
     <!-- Author -->
-    <div class="flex items-center gap-2">
-      <div class="font-medium text-secondary-600 text-sm">{post.author.name}</div>
-      {post.author.role && (
-        <span class="text-xs text-neutral-500">· {post.author.role}</span>
-      )}
-    </div>
+    {post.author && (
+      <div class="flex items-center gap-2">
+        <div class="font-medium text-secondary-600 text-sm">{post.author.name}</div>
+        {post.author.role && (
+          <span class="text-xs text-neutral-500">· {post.author.role}</span>
+        )}
+      </div>
+    )}
   </div>
 </article>
 

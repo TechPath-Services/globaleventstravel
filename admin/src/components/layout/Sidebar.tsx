@@ -22,6 +22,9 @@ import {
   Mail,
   Inbox,
   Users,
+  Megaphone,
+  MapPinned,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -80,6 +83,27 @@ const navigationSections: NavigationSection[] = [
         name: "Email Logs",
         href: "/dashboard/email-logs",
         icon: Inbox,
+      },
+    ],
+  },
+  {
+    label: "Marketing",
+    items: [
+      {
+        name: "Growth Tools",
+        icon: Megaphone,
+        children: [
+          {
+            name: "Departure Cities",
+            href: "/dashboard/marketing/cities",
+            icon: MapPinned,
+          },
+          {
+            name: "Tool Settings",
+            href: "/dashboard/marketing/settings",
+            icon: SlidersHorizontal,
+          },
+        ],
       },
     ],
   },

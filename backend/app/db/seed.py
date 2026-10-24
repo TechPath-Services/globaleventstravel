@@ -1321,6 +1321,9 @@ def seed_all(drop_all: bool = False):
     # Create tables
     print("[*] Creating tables...")
     Base.metadata.create_all(bind=engine)
+    from app.db.schema_patch import ensure_additive_columns
+
+    ensure_additive_columns(engine)
 
     # Create session
     db = SessionLocal()
@@ -1335,6 +1338,10 @@ def seed_all(drop_all: bool = False):
         seed_offices(db)
         seed_blog(db)
         seed_page_content(db)
+
+        from app.db.seed_marketing import seed_marketing
+
+        seed_marketing(db)
 
         print("\n[OK] Database seeding completed successfully!\n")
     except Exception as e:

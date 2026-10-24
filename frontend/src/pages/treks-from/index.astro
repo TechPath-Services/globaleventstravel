@@ -1,0 +1,67 @@
+---
+import MainLayout from '@/layouts/MainLayout.astro';
+import { formatDate } from '@/lib/marketing/format';
+import { breadcrumbJsonLd, graph, loadCities } from '@/lib/marketing/server';
+
+export const prerender = false;
+
+const cities = await loadCities();
+const structuredData = graph(
+  breadcrumbJsonLd(Astro.url.origin, [
+    { name: 'Home', path: '/' },
+    { name: 'Treks from your city', path: '/treks-from/' },
+  ]),
+  cities.length > 0 && {
+    '@type': 'ItemList',
+    itemListElement: cities.map((c, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: `Treks from ${c.name}`,
+      url: new URL(`/treks-from/${c.slug}/`, Astro.url.origin).href,
+    })),
+  },
+);
+---
+
+<MainLayout
+  title="Treks From Your City: Verified Routes, Timings & Costs"
+  description="How to reach Himalayan treks from your city with bus and train routes our team has verified, plus our group departures."
+  structuredData={structuredData}
+>
+  <section class="bg-gradient-to-br from-secondary-700 to-secondary-500 py-14 md:py-20">
+    <div class="container-custom text-white">
+      <h1 class="mb-3 text-4xl font-bold text-white md:text-5xl">Treks from your city</h1>
+      <p class="max-w-2xl text-lg text-white/85">
+        Real routes, timings and fares to every pickup point, checked by our team. Pick your city.
+      </p>
+    </div>
+  </section>
+
+  <section class="section bg-neutral-50">
+    <div class="container-custom">
+      {cities.length > 0 ? (
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {cities.map((c) => (
+            <a href={`/treks-from/${c.slug}/`} class="group block overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-shadow hover:shadow-lg">
+              {c.hero_image && <img src={c.hero_image} alt="" class="aspect-[16/9] w-full object-cover" loading="lazy" />}
+              <div class="p-6">
+                <h2 class="text-2xl font-bold group-hover:text-primary-600">Treks from {c.name}</h2>
+                {c.meta_description && <p class="mt-2 text-sm text-neutral-600">{c.meta_description}</p>}
+                <p class="mt-4 text-sm text-neutral-700">
+                  {c.route_count} verified routes to {c.bases.join(', ')}
+                </p>
+                {c.last_verified && <p class="mt-1 text-xs text-neutral-500">Last verified {formatDate(c.last_verified)}</p>}
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div class="rounded-xl bg-white p-8 text-center">
+          <p class="text-lg font-semibold">We're verifying routes city by city.</p>
+          <p class="mt-2 text-neutral-600">Meanwhile, ask us on WhatsApp and we'll share the best way to reach your trek.</p>
+          <a href="/tools/winter-trek-quiz/" class="btn-primary mt-5">Find your winter trek</a>
+        </div>
+      )}
+    </div>
+  </section>
+</MainLayout>

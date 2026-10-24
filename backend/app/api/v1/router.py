@@ -21,6 +21,8 @@ from app.api.v1.endpoints import (
     google_reviews,
     webhooks,
     email_logs,
+    marketing,
+    departure_cities,
 )
 
 api_router = APIRouter()
@@ -44,4 +46,8 @@ api_router.include_router(site_settings.router, prefix="/site-settings", tags=["
 api_router.include_router(google_reviews.router, prefix="/google-reviews", tags=["Google Reviews"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 api_router.include_router(email_logs.router, prefix="/email-logs", tags=["Email Logs"])
+api_router.include_router(marketing.router, prefix="/marketing", tags=["Marketing"])
+api_router.include_router(
+    departure_cities.router, prefix="/departure-cities", tags=["Departure Cities"]
+)
 

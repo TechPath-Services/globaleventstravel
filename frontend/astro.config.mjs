@@ -17,16 +17,30 @@ async function fetchSlugs(path) {
   }
 }
 
-const [blogSlugs, trekSlugs, expeditionSlugs] = await Promise.all([
+const [blogSlugs, trekSlugs, expeditionSlugs, citySlugs, quizSlugs] = await Promise.all([
   fetchSlugs('/blog/posts?limit=500&status=published'),
   fetchSlugs('/treks?limit=500&status=published'),
   fetchSlugs('/expeditions?limit=500&status=published'),
+  fetchSlugs('/departure-cities'),
+  fetchSlugs('/marketing/treks?scope=quiz'),
 ]);
+
+// SSR pages are invisible to @astrojs/sitemap, so list them explicitly
+const marketingPages = [
+  '/tools/',
+  '/tools/winter-trek-quiz/',
+  '/tools/trek-budget-calculator/',
+  '/student-discount/',
+  '/treks-from/',
+  ...citySlugs.map((s) => `/treks-from/${s}/`),
+  ...quizSlugs.map((s) => `/tools/winter-trek-quiz/result/${s}/`),
+];
 
 const dynamicPages = [
   ...blogSlugs.map((s) => `https://globaleventstravels.com/blog/${s}/`),
   ...trekSlugs.map((s) => `https://globaleventstravels.com/treks/${s}/`),
   ...expeditionSlugs.map((s) => `https://globaleventstravels.com/expeditions/${s}/`),
+  ...marketingPages.map((p) => `https://globaleventstravels.com${p}`),
 ];
 
 export default defineConfig({
@@ -38,6 +52,7 @@ export default defineConfig({
     react(),
     sitemap({
       customPages: dynamicPages,
+      filter: (page) => !page.includes('/embed/'),
     }),
   ],
   output: 'server',

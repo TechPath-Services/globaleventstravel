@@ -18,7 +18,8 @@ class LeadCreate(LeadBase):
     """Schema for creating a lead."""
     trek_name: Optional[str] = None
     interest_type: str = Field(default="trek", pattern="^(trek|expedition)$")
-    source: str = "website"
+    source: str = Field(default="website", max_length=50)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class LeadUpdate(BaseModel):
@@ -56,6 +57,7 @@ class LeadListResponse(BaseModel):
     source: str
     status: str
     itinerary_sent: bool
+    notes: Optional[str] = None
     created_at: datetime
 
     class Config:
