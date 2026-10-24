@@ -22,9 +22,10 @@ def list_leads(
     skip: int = Query(0, ge=0),
     limit: int = Query(None),
     status: Optional[str] = Query(None, pattern="^(new|contacted|converted|lost)$"),
+    source: Optional[str] = Query(None, max_length=50),
     db: Session = Depends(get_db),
 ):
-    """Get list of leads with optional status filter."""
+    """Get list of leads with optional status and source filters."""
     if limit is None:
         limit = settings.DEFAULT_PAGE_SIZE
     limit = min(limit, settings.MAX_PAGE_SIZE)
@@ -32,6 +33,8 @@ def list_leads(
     filters = {}
     if status:
         filters["status"] = status
+    if source:
+        filters["source"] = source
     
     leads = lead_crud.get_multi(db, skip=skip, limit=limit, filters=filters)
     total = lead_crud.get_count(db, filters=filters)

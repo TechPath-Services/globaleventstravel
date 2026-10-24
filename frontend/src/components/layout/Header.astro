@@ -11,6 +11,8 @@ interface Props {
 const { siteConfig, headerVariant = 'default' } = Astro.props;
 const currentPath = Astro.url.pathname;
 const isExpedition = headerVariant === 'expedition';
+const isActive = (href: string) =>
+  currentPath === href || (href !== '/' && currentPath.startsWith(`${href}/`));
 ---
 
 <header 
@@ -43,8 +45,8 @@ const isExpedition = headerVariant === 'expedition';
             href={link.href}
             class:list={[
               isExpedition ? 'text-white/90 hover:text-white font-medium transition-colors' : 'nav-link',
-              isExpedition && (currentPath === link.href || (link.href !== '/' && currentPath.startsWith(link.href))) ? 'text-white' : '',
-              !isExpedition && { 'nav-link-active': currentPath === link.href || (link.href !== '/' && currentPath.startsWith(link.href)) }
+              isExpedition && isActive(link.href) ? 'text-white' : '',
+              !isExpedition && { 'nav-link-active': isActive(link.href) }
             ]}
           >
             {link.name}
@@ -91,7 +93,7 @@ const isExpedition = headerVariant === 'expedition';
             href={link.href}
             class:list={[
               'px-4 py-2 rounded-lg transition-colors',
-              currentPath === link.href || (link.href !== '/' && currentPath.startsWith(link.href))
+              isActive(link.href)
                 ? isExpedition ? 'bg-royal-700 text-white' : 'bg-secondary-50 text-secondary-600'
                 : isExpedition ? 'text-white/90 hover:bg-royal-700 hover:text-white' : 'text-neutral-800 hover:bg-neutral-50 hover:text-secondary-600'
             ]}

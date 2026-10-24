@@ -5,6 +5,7 @@ export interface LeadListParams {
   skip?: number;
   limit?: number;
   status?: LeadStatus | "all";
+  source?: string;
 }
 
 export interface LeadUpdatePayload {
@@ -16,10 +17,13 @@ export interface LeadUpdatePayload {
 export const leadService = {
   async list(params: LeadListParams = {}): Promise<PaginatedResponse<LeadListItem>> {
     try {
-      const { status, ...rest } = params;
+      const { status, source, ...rest } = params;
       const apiParams: Record<string, any> = { ...rest };
       if (status && status !== "all") {
         apiParams.status = status;
+      }
+      if (source) {
+        apiParams.source = source;
       }
 
       const response = await apiClient.get<PaginatedResponse<LeadListItem>>(

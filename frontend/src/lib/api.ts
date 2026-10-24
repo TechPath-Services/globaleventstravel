@@ -17,6 +17,10 @@ import type {
   Booking,
   PaginatedResponse,
   ContactForm,
+  MarketingSettings,
+  MarketingTrek,
+  DepartureCity,
+  DepartureCitySummary,
 } from './types';
 
 // ============================================
@@ -192,6 +196,7 @@ export interface LeadData {
   trek_slug: string;
   trek_name?: string;
   source?: string;
+  notes?: string;
 }
 
 export interface LeadResponse {
@@ -210,6 +215,30 @@ export interface LeadResponse {
 export const leadsApi = {
   async create(data: LeadData): Promise<LeadResponse> {
     return api.post<LeadResponse>('/leads', data);
+  },
+};
+
+// ============================================
+// Marketing tools API (quiz, calculator, student discount, city pages)
+// ============================================
+
+export const marketingApi = {
+  async getSettings(): Promise<MarketingSettings> {
+    return api.get<MarketingSettings>('/marketing/settings');
+  },
+
+  async getTreks(scope: 'all' | 'quiz' = 'all'): Promise<MarketingTrek[]> {
+    return api.get<MarketingTrek[]>(`/marketing/treks?scope=${scope}`);
+  },
+};
+
+export const citiesApi = {
+  async list(): Promise<DepartureCitySummary[]> {
+    return api.get<DepartureCitySummary[]>('/departure-cities');
+  },
+
+  async getBySlug(slug: string): Promise<DepartureCity> {
+    return api.get<DepartureCity>(`/departure-cities/${encodeURIComponent(slug)}`);
   },
 };
 

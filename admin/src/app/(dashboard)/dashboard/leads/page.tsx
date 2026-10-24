@@ -26,6 +26,21 @@ const STATUS_OPTIONS: { value: LeadStatus | "all"; label: string }[] = [
   { value: "lost", label: "Lost" },
 ];
 
+const SOURCE_SUGGESTIONS = [
+  "website",
+  "hero_form",
+  "trek_page",
+  "mobile_sticky",
+  "expedition_page",
+  "quiz_winter",
+  "budget_calculator",
+  "student_discount",
+  "city_delhi",
+  "city_dehradun",
+  "city_chandigarh",
+  "city_lucknow",
+];
+
 export default function LeadListPage() {
   const { addToast } = useUIStore();
 
@@ -35,6 +50,7 @@ export default function LeadListPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
   const limit = 10;
 
   const fetchLeads = async () => {
@@ -44,6 +60,7 @@ export default function LeadListPage() {
         skip: (page - 1) * limit,
         limit,
         status: statusFilter,
+        source: sourceFilter.trim() || undefined,
       };
       const data = await leadService.list(params);
       let items = data.items;
@@ -52,8 +69,9 @@ export default function LeadListPage() {
         items = items.filter(
           (l) =>
             l.name.toLowerCase().includes(s) ||
-            l.email.toLowerCase().includes(s) ||
-            (l.trek_name || "").toLowerCase().includes(s)
+            (l.email || "").toLowerCase().includes(s) ||
+            (l.trek_name || "").toLowerCase().includes(s) ||
+            (l.notes || "").toLowerCase().includes(s)
         );
       }
       setLeads(items);
@@ -68,7 +86,7 @@ export default function LeadListPage() {
 
   useEffect(() => {
     fetchLeads();
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, search, sourceFilter]);
 
   const totalPages = Math.ceil(total / limit) || 1;
 
@@ -115,6 +133,23 @@ export default function LeadListPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <input
+              type="text"
+              list="lead-source-suggestions"
+              placeholder="All sources"
+              value={sourceFilter}
+              onChange={(e) => {
+                setSourceFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-44 rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              aria-label="Filter by source"
+            />
+            <datalist id="lead-source-suggestions">
+              {SOURCE_SUGGESTIONS.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -135,6 +170,7 @@ export default function LeadListPage() {
               onClick={() => {
                 setSearch("");
                 setStatusFilter("all");
+                setSourceFilter("");
                 setPage(1);
               }}
             >
@@ -225,7 +261,15 @@ export default function LeadListPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {lead.source || "website"}
+                        <div>{lead.source || "website"}</div>
+                        {lead.notes && (
+                          <div
+                            className="mt-1 max-w-xs truncate text-xs text-gray-500"
+                            title={lead.notes}
+                          >
+                            {lead.notes}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={statusBadgeVariant(lead.status)}>

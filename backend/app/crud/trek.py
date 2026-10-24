@@ -277,6 +277,13 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
             meta_description=db_obj.meta_description,
             meta_keywords=db_obj.meta_keywords,
             map_embed=db_obj.map_embed,
+            start_point=db_obj.start_point,
+            end_point=db_obj.end_point,
+            pickup_city=db_obj.pickup_city,
+            pickup_time=db_obj.pickup_time,
+            quiz_tags=db_obj.quiz_tags,
+            quiz_persona=db_obj.quiz_persona,
+            quiz_share_line=db_obj.quiz_share_line,
             guide_id=db_obj.guide_id,
         )
         db.add(new_trek)

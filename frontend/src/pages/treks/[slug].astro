@@ -10,6 +10,9 @@ import MobileStickyForm from '@/components/forms/MobileStickyForm';
 import TrekCard from '@/components/trek/TrekCard.astro';
 import TrekHero from '@/components/trek/TrekHero.astro';
 import { renderContent } from '@/lib/markdown';
+import { loadCities, loadSettings } from '@/lib/marketing/server';
+import { studentDiscountAmount } from '@/lib/marketing/discount';
+import { sameBase } from '@/lib/marketing/format';
 
 // Enable SSR for this page - fetch trek data dynamically at request time
 export const prerender = false;
@@ -154,6 +157,14 @@ const availableBatchPrices = batches
 const startingPrice = availableBatchPrices.length > 0
   ? Math.min(...availableBatchPrices)
   : trek.price;
+
+const [marketingSettings, publishedCities] = await Promise.all([loadSettings(), loadCities()]);
+const studentOffer = marketingSettings?.student_discount;
+const studentSaving = studentOffer ? studentDiscountAmount(startingPrice, studentOffer) : 0;
+const citiesForTrek = publishedCities.filter((c) => c.bases.some((b) => sameBase(b, trek.pickup_city)));
+const inQuizSeason = !!marketingSettings?.quiz.enabled &&
+  (trek.best_season ?? []).some((m) => marketingSettings.quiz.season_months.includes(m));
+const calculatorEnabled = marketingSettings?.calculator.enabled !== false;
 
 const locationLabel = trek.location.toLowerCase().includes('india')
   ? trek.location
@@ -612,6 +623,42 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                 trekPrice={formatPrice(startingPrice)}
               />
             </div>
+
+            <!-- Plan this trek (marketing tools) -->
+            {(studentSaving > 0 || calculatorEnabled || citiesForTrek.length > 0 || inQuizSeason) && (
+              <div class="bg-white rounded-xl border border-neutral-200 p-6 space-y-3">
+                <h3 class="font-bold text-neutral-900">Plan this trek</h3>
+                {studentSaving > 0 && (
+                  <a href="/student-discount/" class="block rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800 hover:bg-green-100">
+                    Students pay {formatPrice(startingPrice - studentSaving)} with a valid ID →
+                  </a>
+                )}
+                {calculatorEnabled && (
+                  <a href={`/tools/trek-budget-calculator/?trek=${trek.slug}`} class="block text-sm font-medium">
+                    What will it cost me all-in? →
+                  </a>
+                )}
+                {citiesForTrek.length > 0 && (
+                  <div class="text-sm">
+                    <p class="mb-2 text-neutral-600">
+                      Getting to {trek.pickup_city}{trek.pickup_time ? ` (pickup ${trek.pickup_time})` : ''}:
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                      {citiesForTrek.map((c) => (
+                        <a href={`/treks-from/${c.slug}/`} class="rounded-full border border-neutral-300 px-3 py-1 hover:border-primary-400">
+                          From {c.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {inQuizSeason && (
+                  <a href="/tools/winter-trek-quiz/" class="block text-sm font-medium">
+                    Not sure it's the one? Take the winter trek quiz →
+                  </a>
+                )}
+              </div>
+            )}
 
             <!-- Quick Info -->
           <div class="bg-white rounded-xl border border-neutral-200 p-6">
