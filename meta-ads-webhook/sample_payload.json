@@ -1,0 +1,29 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "WABA_ID",
+    "changes": [{
+      "field": "messages",
+      "value": {
+        "messaging_product": "whatsapp",
+        "metadata": {"display_phone_number": "916383313359", "phone_number_id": "PHONE_NUMBER_ID"},
+        "contacts": [{"profile": {"name": "Test User"}, "wa_id": "919999999999"}],
+        "messages": [{
+          "from": "919999999999",
+          "id": "wamid.TEST",
+          "timestamp": "1762780000",
+          "type": "text",
+          "text": {"body": "Hi! I'm interested in Kheerganga Trek from Kasol. Please share dates and price."},
+          "referral": {
+            "source_url": "https://fb.me/xyz",
+            "source_type": "ad",
+            "source_id": "120250840731510254",
+            "headline": "Kheerganga Trek – From ₹2,999",
+            "body": "Kasol to Kheerganga | 2N/3D",
+            "ctwa_clid": "TEST_CLID"
+          }
+        }]
+      }
+    }]
+  }]
+}
