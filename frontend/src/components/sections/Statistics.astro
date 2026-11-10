@@ -1,5 +1,6 @@
 ---
 import { api } from '@/lib/api';
+import { withComputedYears, yearsOfExperienceValue } from '@/lib/founded';
 
 interface StatItem {
   value: string;
@@ -7,12 +8,12 @@ interface StatItem {
   description: string;
 }
 
-const defaultStats: StatItem[] = [
+const defaultStats: StatItem[] = withComputedYears([
   { value: '50+', label: 'Trek Routes', description: 'Across the Himalayas' },
   { value: '10,000+', label: 'Happy Trekkers', description: 'And counting' },
   { value: '15+', label: 'Expert Guides', description: 'Certified professionals' },
-  { value: '8+', label: 'Years Experience', description: 'In adventure tourism' },
-];
+  { value: yearsOfExperienceValue(), label: 'Years Experience', description: 'In adventure tourism' },
+]);
 
 let stats: StatItem[] = defaultStats;
 
@@ -23,7 +24,7 @@ try {
     // Expect body_html as JSON array of { value, label, description }
     const parsed = JSON.parse(statSection.body_html) as StatItem[];
     if (Array.isArray(parsed) && parsed.length > 0) {
-      stats = parsed;
+      stats = withComputedYears(parsed);
     }
   }
 } catch (error) {

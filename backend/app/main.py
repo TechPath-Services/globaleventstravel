@@ -49,7 +49,26 @@ async def lifespan(app: FastAPI):
     from app.db.schema_patch import ensure_additive_columns
 
     ensure_additive_columns(engine)
-    
+
+    # About copy and years-of-experience stats live in page_sections. Correct the
+    # pre-2012 wording on startup so a deploy fixes existing databases. Idempotent.
+    try:
+        from app.db.session import SessionLocal
+        from app.services.founding_content import correct_founding_content
+
+        db = SessionLocal()
+        try:
+            updated = correct_founding_content(db)
+            if updated:
+                print(f"[OK] Corrected founding year on {updated} page section(s)")
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Warning: could not correct founding-year content: {e}")
+
     yield
     
     # Cleanup (if needed)
