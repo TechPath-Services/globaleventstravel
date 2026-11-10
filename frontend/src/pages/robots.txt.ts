@@ -1,5 +1,7 @@
 import type { APIRoute } from 'astro';
 
+const SITEMAP_URL = 'https://globaleventstravels.com/sitemap.xml';
+
 export const GET: APIRoute = () => {
   const isIndexable = import.meta.env.PUBLIC_ROBOTS === 'index,follow';
 
@@ -8,11 +10,13 @@ export const GET: APIRoute = () => {
       `User-agent: *
 Allow: /
 
-Sitemap: ${import.meta.env.PUBLIC_SITE_URL || 'https://globaleventstravels.com'}/sitemap-index.xml
+Sitemap: ${SITEMAP_URL}
 `
-    : // Staging / local: block all crawlers
+    : // Staging / local: block crawlers, but still advertise the production sitemap
       `User-agent: *
 Disallow: /
+
+Sitemap: ${SITEMAP_URL}
 `;
 
   return new Response(content, {

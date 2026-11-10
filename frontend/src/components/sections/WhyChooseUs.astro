@@ -1,5 +1,6 @@
 ---
 import { api } from '@/lib/api';
+import { yearsOfExperienceValue } from '@/lib/founded';
 
 interface TrustStat {
   value: string;
@@ -9,7 +10,7 @@ interface TrustStat {
 let stats: TrustStat[] = [
   { value: '10,000+', label: 'Happy Trekkers' },
   { value: '4.8', label: 'Average Rating' },
-  { value: '8+', label: 'Years Experience' },
+  { value: yearsOfExperienceValue(), label: 'Years Experience' },
   { value: '✓', label: 'No Hidden Costs' },
 ];
 

@@ -5,6 +5,7 @@ Populates the database with initial data from frontend mock data.
 import os
 import sys
 import json
+from datetime import datetime, timezone
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -22,6 +23,9 @@ from app.db.models import (
 from app.db.models.blog import BlogCategory, BlogTag, blog_post_tags
 from app.db.models.page_content import PageSection
 from app.core.security import get_password_hash
+
+# Fresh databases only. Existing page_sections rows are left for the admin CMS.
+FOUNDED_YEAR = 2012
 
 
 def seed_guides(db: Session):
@@ -562,6 +566,7 @@ def seed_offices(db: Session):
 
 def seed_page_content(db: Session):
     """Seed editable page content sections for home, about, expeditions, and treks."""
+    years_label = f"{max(0, datetime.now(timezone.utc).year - FOUNDED_YEAR)}+"
     sections_data = [
         # Home hero (booking-focused)
         {
@@ -654,7 +659,7 @@ def seed_page_content(db: Session):
             "body_html": json.dumps([
                 {"value": "10,000+", "label": "Happy Trekkers"},
                 {"value": "4.8", "label": "Average Rating"},
-                {"value": "8+", "label": "Years Experience"},
+                {"value": years_label, "label": "Years Experience"},
                 {"value": "✓", "label": "No Hidden Costs"},
             ]),
             "image_url": None,
@@ -769,7 +774,7 @@ def seed_page_content(db: Session):
                         "description": "Certified professionals",
                     },
                     {
-                        "value": "8+",
+                        "value": years_label,
                         "label": "Years Experience",
                         "description": "In adventure tourism",
                     },
@@ -817,7 +822,7 @@ def seed_page_content(db: Session):
             "subtitle": None,
             "badge_text": "Our Story",
             "body_html": (
-                "<p>Global Events Travels was founded in 2016 by a group of passionate "
+                f"<p>Global Events Travels was founded in {FOUNDED_YEAR} by a group of passionate "
                 "mountaineers who believed that everyone deserves to experience the magic "
                 "of the Himalayas. What started as a small team of friends leading treks "
                 "has grown into one of the most trusted adventure travel companies in India.</p>"
@@ -1042,7 +1047,7 @@ def seed_page_content(db: Session):
                 [
                     {"value": "10,000+", "label": "Happy Trekkers", "icon": "users"},
                     {"value": "4.8", "label": "Average Rating", "icon": "star"},
-                    {"value": "8+", "label": "Years Experience", "icon": "award"},
+                    {"value": years_label, "label": "Years Experience", "icon": "award"},
                     {"value": "100%", "label": "Safety Focused", "icon": "shield"},
                 ]
             ),
