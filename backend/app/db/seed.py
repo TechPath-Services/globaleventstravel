@@ -5,6 +5,7 @@ Populates the database with initial data from frontend mock data.
 import os
 import sys
 import json
+from datetime import datetime, timezone
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -22,11 +23,9 @@ from app.db.models import (
 from app.db.models.blog import BlogCategory, BlogTag, blog_post_tags
 from app.db.models.page_content import PageSection
 from app.core.security import get_password_hash
-from app.services.founding_content import (
-    FOUNDED_YEAR,
-    correct_founding_content,
-    years_of_experience_label,
-)
+
+# Fresh databases only. Existing page_sections rows are left for the admin CMS.
+FOUNDED_YEAR = 2012
 
 
 def seed_guides(db: Session):
@@ -567,7 +566,7 @@ def seed_offices(db: Session):
 
 def seed_page_content(db: Session):
     """Seed editable page content sections for home, about, expeditions, and treks."""
-    years_label = years_of_experience_label()
+    years_label = f"{max(0, datetime.now(timezone.utc).year - FOUNDED_YEAR)}+"
     sections_data = [
         # Home hero (booking-focused)
         {
@@ -1073,11 +1072,7 @@ def seed_page_content(db: Session):
             created_count += 1
 
     db.commit()
-    corrected = correct_founding_content(db)
-    print(
-        f"[OK] Seeded {created_count} page content sections "
-        f"({corrected} founding-year rows corrected)"
-    )
+    print(f"[OK] Seeded {created_count} page content sections")
 
 
 def seed_blog(db: Session):

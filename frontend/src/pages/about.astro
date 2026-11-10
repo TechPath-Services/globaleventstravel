@@ -4,7 +4,7 @@ import Statistics from '@/components/sections/Statistics.astro';
 import CTA from '@/components/sections/CTA.astro';
 import { Image } from 'astro:assets';
 import { guidesApi, api } from '@/lib/api';
-import { FOUNDED_YEAR, correctFoundingCopy, yearsOfExperienceValue } from '@/lib/founded';
+import { FOUNDED_YEAR, yearsOfExperienceValue } from '@/lib/founded';
 import type { Guide } from '@/lib/types';
 
 let guides: Guide[] = [];
@@ -77,7 +77,7 @@ const values = [
           </h2>
           <div class="space-y-4 text-neutral-600 leading-relaxed">
             {storySection?.body_html ? (
-              <div class="prose prose-neutral max-w-none" set:html={correctFoundingCopy(storySection.body_html)}></div>
+              <div class="prose prose-neutral max-w-none" set:html={storySection.body_html}></div>
             ) : (
               <>
                 <p>

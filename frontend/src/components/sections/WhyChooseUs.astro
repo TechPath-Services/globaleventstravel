@@ -1,25 +1,25 @@
 ---
 import { api } from '@/lib/api';
-import { withComputedYears, yearsOfExperienceValue } from '@/lib/founded';
+import { yearsOfExperienceValue } from '@/lib/founded';
 
 interface TrustStat {
   value: string;
   label: string;
 }
 
-let stats: TrustStat[] = withComputedYears([
+let stats: TrustStat[] = [
   { value: '10,000+', label: 'Happy Trekkers' },
   { value: '4.8', label: 'Average Rating' },
   { value: yearsOfExperienceValue(), label: 'Years Experience' },
   { value: '✓', label: 'No Hidden Costs' },
-]);
+];
 
 try {
   const section = await api.get<{ body_html?: string | null }>('/content/home/why_choose_us');
   if (section?.body_html) {
     const parsed = JSON.parse(section.body_html) as TrustStat[];
     if (Array.isArray(parsed) && parsed.length > 0) {
-      stats = withComputedYears(parsed);
+      stats = parsed;
     }
   }
 } catch (error) {

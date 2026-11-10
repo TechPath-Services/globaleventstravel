@@ -1,6 +1,6 @@
 ---
 import { api } from '@/lib/api';
-import { withComputedYears, yearsOfExperienceValue } from '@/lib/founded';
+import { yearsOfExperienceValue } from '@/lib/founded';
 
 interface StatItem {
   value: string;
@@ -8,12 +8,12 @@ interface StatItem {
   icon?: string;
 }
 
-const defaultStats: StatItem[] = withComputedYears([
+const defaultStats: StatItem[] = [
   { value: '10,000+', label: 'Happy Trekkers', icon: 'users' },
   { value: '4.8', label: 'Average Rating', icon: 'star' },
   { value: yearsOfExperienceValue(), label: 'Years Experience', icon: 'award' },
   { value: '100%', label: 'Safety Focused', icon: 'shield' },
-]);
+];
 
 let stats = defaultStats;
 
@@ -21,7 +21,7 @@ try {
   const section = await api.get<{ body_html?: string | null }>('/content/treks/stats');
   if (section?.body_html) {
     const parsed = JSON.parse(section.body_html) as StatItem[];
-    if (Array.isArray(parsed) && parsed.length > 0) stats = withComputedYears(parsed);
+    if (Array.isArray(parsed) && parsed.length > 0) stats = parsed;
   }
 } catch {
   // defaults
