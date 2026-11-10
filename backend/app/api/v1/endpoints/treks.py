@@ -1,19 +1,28 @@
 """
 Trek API endpoints.
 """
-from datetime import date
+
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from app.core.deps import get_db
+
 from app.core.config import settings
+from app.core.deps import get_db
 from app.crud.trek import trek_crud
 from app.db.models.trek import TrekBatch
-from app.models.trek import (
-    TrekCreate, TrekUpdate, TrekResponse, TrekDetailResponse, TrekListResponse
-)
-from app.models.batch import TrekBatchCreate, TrekBatchUpdate, TrekBatchResponse
+from app.models.batch import TrekBatchCreate, TrekBatchResponse, TrekBatchUpdate
 from app.models.common import PaginatedResponse
+from app.models.trek import (
+    TrekCreate,
+    TrekDetailResponse,
+    TrekListResponse,
+    TrekResponse,
+    TrekUpdate,
+)
+from app.services.departures import is_bookable_start, today_in_kolkata
+from app.services.public_cache import cache_get, cache_set
+from app.services.related_treks import related_for_slug
 
 router = APIRouter()
 
@@ -22,7 +31,9 @@ router = APIRouter()
 def list_treks(
     skip: int = Query(0, ge=0),
     limit: int = Query(None),
-    difficulty: Optional[str] = Query(None, pattern="^(easy|moderate|difficult|challenging|extreme)$"),
+    difficulty: Optional[str] = Query(
+        None, pattern="^(easy|moderate|difficult|challenging|extreme)$"
+    ),
     min_price: Optional[float] = Query(None, ge=0),
     max_price: Optional[float] = Query(None, ge=0),
     min_duration: Optional[int] = Query(None, ge=1, description="Minimum trek duration in days"),
@@ -41,7 +52,7 @@ def list_treks(
 ):
     """
     Get list of treks with optional filters.
-    
+
     - **skip**: Number of records to skip (pagination)
     - **limit**: Maximum number of records to return
     - **difficulty**: Filter by difficulty (easy, moderate, difficult, challenging, extreme)
@@ -57,7 +68,7 @@ def list_treks(
     if limit is None:
         limit = settings.DEFAULT_PAGE_SIZE
     limit = min(limit, settings.MAX_PAGE_SIZE)
-    
+
     treks = trek_crud.get_multi_with_filters(
         db,
         skip=skip,
@@ -87,7 +98,7 @@ def list_treks(
         search=search,
         season=season,
     )
-    
+
     return PaginatedResponse(
         items=[TrekListResponse.model_validate(t) for t in treks],
         total=total,
@@ -106,16 +117,55 @@ def list_featured_treks(
     return [TrekListResponse.model_validate(t) for t in treks]
 
 
+@router.get("/{slug}/related", response_model=List[TrekListResponse])
+def list_related_treks(
+    slug: str,
+    limit: int = Query(4, ge=1, le=12),
+    db: Session = Depends(get_db),
+):
+    """
+    Published treks for the related block on a trek page.
+
+    Seasonal overlap is preferred over a shared region, so a winter trek is
+    matched with other winter treks before summer treks in the same state.
+    """
+    today = today_in_kolkata()
+    key = f"related:{slug}:{limit}:{today.isoformat()}"
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+
+    related = related_for_slug(db, slug, limit=limit)
+    if related is None:
+        raise HTTPException(status_code=404, detail="Trek not found")
+    payload = [TrekListResponse.model_validate(trek).model_dump(mode="json") for trek in related]
+    cache_set(key, payload)
+    return payload
+
+
 @router.get("/{slug}", response_model=TrekDetailResponse)
 def get_trek(
     slug: str,
     db: Session = Depends(get_db),
 ):
-    """Get a trek by slug with full details."""
-    trek = trek_crud.get_by_slug_with_details(db, slug)
+    """Public trek page. Batches that have already started in Asia/Kolkata are omitted."""
+    today = today_in_kolkata()
+    key = f"trek:{slug}:{today.isoformat()}"
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+
+    trek = trek_crud.get_by_slug_with_details(db, slug, bookable_from=today)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    return TrekDetailResponse.model_validate(trek)
+    payload = TrekDetailResponse.model_validate(trek)
+    payload.batches = [
+        batch
+        for batch in payload.batches
+        if is_bookable_start(batch.start_date, today, batch.is_active)
+    ]
+    cache_set(key, payload.model_dump(mode="json"))
+    return payload
 
 
 @router.get("/id/{trek_id}", response_model=TrekDetailResponse)
@@ -140,7 +190,7 @@ def create_trek(
     existing = trek_crud.get_by_slug(db, trek_in.slug)
     if existing:
         raise HTTPException(status_code=400, detail="Trek with this slug already exists")
-    
+
     trek = trek_crud.create_with_relations(db, obj_in=trek_in)
     return TrekResponse.model_validate(trek)
 
@@ -155,13 +205,13 @@ def update_trek(
     trek = trek_crud.get_with_details(db, trek_id)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    
+
     # Check slug uniqueness if updating slug
     if trek_in.slug and trek_in.slug != trek.slug:
         existing = trek_crud.get_by_slug(db, trek_in.slug)
         if existing:
             raise HTTPException(status_code=400, detail="Trek with this slug already exists")
-    
+
     trek = trek_crud.update_with_relations(db, db_obj=trek, obj_in=trek_in)
     return TrekDetailResponse.model_validate(trek)
 
@@ -175,7 +225,7 @@ def delete_trek(
     trek = trek_crud.get(db, trek_id)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    
+
     trek_crud.remove(db, id=trek_id)
     return {"message": "Trek deleted successfully"}
 
@@ -189,7 +239,7 @@ def publish_trek(
     trek = trek_crud.get(db, trek_id)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    
+
     trek = trek_crud.publish(db, db_obj=trek)
     return TrekResponse.model_validate(trek)
 
@@ -203,7 +253,7 @@ def unpublish_trek(
     trek = trek_crud.get(db, trek_id)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    
+
     trek = trek_crud.unpublish(db, db_obj=trek)
     return TrekResponse.model_validate(trek)
 
@@ -217,7 +267,7 @@ def archive_trek(
     trek = trek_crud.get(db, trek_id)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    
+
     trek = trek_crud.archive(db, db_obj=trek)
     return TrekResponse.model_validate(trek)
 
@@ -231,7 +281,7 @@ def restore_trek(
     trek = trek_crud.get(db, trek_id)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    
+
     trek = trek_crud.restore(db, db_obj=trek)
     return TrekResponse.model_validate(trek)
 
@@ -254,6 +304,7 @@ def duplicate_trek(
 # Trek Batch Endpoints
 # ============================================
 
+
 @router.get("/{trek_id}/batches", response_model=List[TrekBatchResponse])
 def list_batches(trek_id: int, db: Session = Depends(get_db)):
     """Get all batches for a trek (admin)."""
@@ -265,13 +316,25 @@ def list_batches(trek_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{slug}/batches/public", response_model=List[TrekBatchResponse])
 def list_batches_public(slug: str, db: Session = Depends(get_db)):
-    """Get active future batches for a trek by slug (frontend)."""
-    trek = trek_crud.get_by_slug_with_details(db, slug)
+    """
+    Active batches a visitor can still book.
+
+    A batch whose start date is before today in Asia/Kolkata is omitted, even
+    when its end date is still in the future. This does not rewrite stored rows.
+    """
+    today = today_in_kolkata()
+    key = f"batches:{slug}:{today.isoformat()}"
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+
+    trek = trek_crud.get_by_slug(db, slug)
     if not trek:
         raise HTTPException(status_code=404, detail="Trek not found")
-    today = date.today()
-    batches = [b for b in trek.batches if b.is_active and b.end_date >= today]
-    return [TrekBatchResponse.from_orm_model(b) for b in batches]
+    batches = trek_crud.list_bookable_batches(db, trek.id, today)
+    payload = [TrekBatchResponse.from_orm_model(batch).model_dump(mode="json") for batch in batches]
+    cache_set(key, payload)
+    return payload
 
 
 @router.post("/{trek_id}/batches", response_model=TrekBatchResponse, status_code=201)
@@ -290,9 +353,9 @@ def create_batch(trek_id: int, data: TrekBatchCreate, db: Session = Depends(get_
 @router.put("/{trek_id}/batches/{batch_id}", response_model=TrekBatchResponse)
 def update_batch(trek_id: int, batch_id: int, data: TrekBatchUpdate, db: Session = Depends(get_db)):
     """Update a batch."""
-    batch = db.query(TrekBatch).filter(
-        TrekBatch.id == batch_id, TrekBatch.trek_id == trek_id
-    ).first()
+    batch = (
+        db.query(TrekBatch).filter(TrekBatch.id == batch_id, TrekBatch.trek_id == trek_id).first()
+    )
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     for k, v in data.model_dump(exclude_unset=True).items():
@@ -305,9 +368,9 @@ def update_batch(trek_id: int, batch_id: int, data: TrekBatchUpdate, db: Session
 @router.delete("/{trek_id}/batches/{batch_id}", status_code=204)
 def delete_batch(trek_id: int, batch_id: int, db: Session = Depends(get_db)):
     """Delete a batch."""
-    batch = db.query(TrekBatch).filter(
-        TrekBatch.id == batch_id, TrekBatch.trek_id == trek_id
-    ).first()
+    batch = (
+        db.query(TrekBatch).filter(TrekBatch.id == batch_id, TrekBatch.trek_id == trek_id).first()
+    )
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
     db.delete(batch)

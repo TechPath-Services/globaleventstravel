@@ -25,13 +25,16 @@ from app.db.base import Base  # noqa: E402
 from app.db.models import Trek, TrekBatch, User  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services.public_cache import clear_public_cache  # noqa: E402
 
 
 @pytest.fixture()
 def client():
     Base.metadata.drop_all(bind=engine)
+    clear_public_cache()
     with TestClient(app) as test_client:
         yield test_client
+    clear_public_cache()
     Base.metadata.drop_all(bind=engine)
 
 

@@ -6,6 +6,39 @@ from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
 
+def ensure_lookup_indexes(engine: Engine) -> None:
+    """
+    Index trek child rows used by the public trek page.
+
+    create_all() does not ALTER existing tables, and a missing trek_id index turns
+    the batch/itinerary reads into full scans on MySQL databases created earlier.
+    """
+    wanted = {
+        "trek_images": ("ix_trek_images_trek_id", ["trek_id"]),
+        "itinerary_days": ("ix_itinerary_days_trek_id", ["trek_id"]),
+        "trek_faqs": ("ix_trek_faqs_trek_id", ["trek_id"]),
+        "trek_batches": ("ix_trek_batches_trek_start", ["trek_id", "start_date"]),
+    }
+    try:
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
+        for table, (name, columns) in wanted.items():
+            if table not in tables:
+                continue
+            existing = inspector.get_indexes(table)
+            covered = any(
+                idx.get("column_names") == columns or idx.get("name") == name for idx in existing
+            )
+            if covered:
+                continue
+            column_sql = ", ".join(columns)
+            with engine.begin() as conn:
+                conn.execute(text(f"CREATE INDEX {name} ON {table} ({column_sql})"))
+            print(f"[OK] Added index {name} on {table}({column_sql})")
+    except Exception as e:
+        print(f"Warning: could not ensure trek lookup indexes: {e}")
+
+
 def ensure_additive_columns(engine: Engine) -> None:
     """Add nullable columns introduced after a table was first created. Safe to run repeatedly."""
     try:

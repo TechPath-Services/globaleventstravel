@@ -1,38 +1,84 @@
 """
 CRUD operations for Trek model.
 """
-from datetime import datetime
-from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, cast, String
+
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import String, cast, func
+from sqlalchemy.orm import Session, joinedload, selectinload
+
 from app.crud.base import CRUDBase
-from app.db.models.trek import Trek, TrekImage, ItineraryDay, TrekFAQ, TrekBatch
-from app.models.trek import TrekCreate, TrekUpdate, ItineraryDayCreate, TrekImageCreate, TrekFAQCreate
+from app.db.models.trek import ItineraryDay, Trek, TrekBatch, TrekFAQ, TrekImage
+from app.models.trek import (
+    ItineraryDayCreate,
+    TrekCreate,
+    TrekFAQCreate,
+    TrekImageCreate,
+    TrekUpdate,
+)
 
 
 class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
     """CRUD operations for Trek model."""
-    
-    def get_with_details(self, db: Session, id: int) -> Optional[Trek]:
-        """Get trek with all related data."""
-        return db.query(Trek).options(
-            joinedload(Trek.itinerary),
-            joinedload(Trek.images),
-            joinedload(Trek.faqs),
-            joinedload(Trek.guide),
-            joinedload(Trek.batches),
-        ).filter(Trek.id == id).first()
 
-    def get_by_slug_with_details(self, db: Session, slug: str) -> Optional[Trek]:
-        """Get trek by slug with all related data."""
-        return db.query(Trek).options(
-            joinedload(Trek.itinerary),
-            joinedload(Trek.images),
-            joinedload(Trek.faqs),
+    def _detail_options(self, bookable_from: Optional[date] = None):
+        """
+        Load collections with SELECT IN, not one joined cartesian product.
+
+        Joining itinerary, faqs, images, and batches in a single SELECT multiplies
+        those rows together. Calendar treks (dozens of batches) make that query
+        dominate trek-page TTFB. Many-to-one guide is still a join.
+        """
+        if bookable_from is None:
+            batches = selectinload(Trek.batches)
+        else:
+            batches = selectinload(
+                Trek.batches.and_(
+                    TrekBatch.is_active.is_(True),
+                    TrekBatch.start_date >= bookable_from,
+                )
+            )
+        return (
+            selectinload(Trek.itinerary),
+            selectinload(Trek.images),
+            selectinload(Trek.faqs),
             joinedload(Trek.guide),
-            joinedload(Trek.batches),
-        ).filter(Trek.slug == slug).first()
-    
+            batches,
+        )
+
+    def get_with_details(self, db: Session, id: int) -> Optional[Trek]:
+        """Get trek with all related data, including past batches (admin)."""
+        return db.query(Trek).options(*self._detail_options()).filter(Trek.id == id).first()
+
+    def get_by_slug_with_details(
+        self,
+        db: Session,
+        slug: str,
+        *,
+        bookable_from: Optional[date] = None,
+    ) -> Optional[Trek]:
+        """Get trek by slug. Pass bookable_from to omit departures that already started."""
+        return (
+            db.query(Trek)
+            .options(*self._detail_options(bookable_from))
+            .filter(Trek.slug == slug)
+            .first()
+        )
+
+    def list_bookable_batches(self, db: Session, trek_id: int, today: date) -> List[TrekBatch]:
+        """Active batches whose start date is today or later, oldest first."""
+        return (
+            db.query(TrekBatch)
+            .filter(
+                TrekBatch.trek_id == trek_id,
+                TrekBatch.is_active.is_(True),
+                TrekBatch.start_date >= today,
+            )
+            .order_by(TrekBatch.start_date.asc())
+            .all()
+        )
+
     def get_multi_with_filters(
         self,
         db: Session,
@@ -53,7 +99,7 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
     ) -> List[Trek]:
         """Get treks with various filters."""
         query = db.query(Trek)
-        
+
         if difficulty:
             query = query.filter(Trek.difficulty == difficulty)
         if max_price is not None:
@@ -72,14 +118,14 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
             query = query.filter(Trek.location.ilike(f"%{location}%"))
         if search:
             query = query.filter(
-                (Trek.name.ilike(f"%{search}%")) |
-                (Trek.short_description.ilike(f"%{search}%")) |
-                (Trek.location.ilike(f"%{search}%"))
+                (Trek.name.ilike(f"%{search}%"))
+                | (Trek.short_description.ilike(f"%{search}%"))
+                | (Trek.location.ilike(f"%{search}%"))
             )
         if season:
             # best_season is JSON array; match if season appears as array element
             query = query.filter(cast(Trek.best_season, String).contains(f'"{season}"'))
-        
+
         # Apply sort
         if sort == "popularity":
             query = query.order_by(Trek.review_count.desc(), Trek.rating.desc())
@@ -92,9 +138,9 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
         else:
             # newest (default)
             query = query.order_by(Trek.created_at.desc())
-        
+
         return query.offset(skip).limit(limit).all()
-    
+
     def get_count_with_filters(
         self,
         db: Session,
@@ -112,7 +158,7 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
     ) -> int:
         """Get count of treks with filters."""
         query = db.query(func.count(Trek.id))
-        
+
         if difficulty:
             query = query.filter(Trek.difficulty == difficulty)
         if max_price is not None:
@@ -131,93 +177,82 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
             query = query.filter(Trek.location.ilike(f"%{location}%"))
         if search:
             query = query.filter(
-                (Trek.name.ilike(f"%{search}%")) |
-                (Trek.short_description.ilike(f"%{search}%")) |
-                (Trek.location.ilike(f"%{search}%"))
+                (Trek.name.ilike(f"%{search}%"))
+                | (Trek.short_description.ilike(f"%{search}%"))
+                | (Trek.location.ilike(f"%{search}%"))
             )
         if season:
             query = query.filter(cast(Trek.best_season, String).contains(f'"{season}"'))
-        
+
         return query.scalar() or 0
-    
-    def create_with_relations(
-        self,
-        db: Session,
-        *,
-        obj_in: TrekCreate
-    ) -> Trek:
+
+    def create_with_relations(self, db: Session, *, obj_in: TrekCreate) -> Trek:
         """Create trek with itinerary, images, and FAQs."""
         # Extract nested data
         itinerary_data = obj_in.itinerary or []
         images_data = obj_in.images or []
         faqs_data = obj_in.faqs or []
-        
+
         # Create trek without nested data
         trek_data = obj_in.model_dump(exclude={"itinerary", "images", "faqs"})
         db_trek = Trek(**trek_data)
         db.add(db_trek)
         db.flush()  # Get the ID
-        
+
         # Create itinerary days
         for day_data in itinerary_data:
             db_day = ItineraryDay(**day_data.model_dump(), trek_id=db_trek.id)
             db.add(db_day)
-        
+
         # Create images
         for img_data in images_data:
             db_img = TrekImage(**img_data.model_dump(), trek_id=db_trek.id)
             db.add(db_img)
-        
+
         # Create FAQs
         for faq_data in faqs_data:
             db_faq = TrekFAQ(**faq_data.model_dump(), trek_id=db_trek.id)
             db.add(db_faq)
-        
+
         db.commit()
         db.refresh(db_trek)
         return db_trek
-    
-    def update_with_relations(
-        self,
-        db: Session,
-        *,
-        db_obj: Trek,
-        obj_in: TrekUpdate
-    ) -> Trek:
+
+    def update_with_relations(self, db: Session, *, db_obj: Trek, obj_in: TrekUpdate) -> Trek:
         """Update trek with itinerary and FAQs."""
         # Extract nested data
         itinerary_data = obj_in.itinerary
         faqs_data = obj_in.faqs
-        
+
         # Update trek fields
         update_data = obj_in.model_dump(exclude={"itinerary", "faqs"}, exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_obj, field, value)
-        
+
         # Replace itinerary if provided
         if itinerary_data is not None:
             # Delete existing itinerary
             db.query(ItineraryDay).filter(ItineraryDay.trek_id == db_obj.id).delete()
-            
+
             # Create new itinerary days
             for day_data in itinerary_data:
                 db_day = ItineraryDay(**day_data.model_dump(), trek_id=db_obj.id)
                 db.add(db_day)
-        
+
         # Replace FAQs if provided
         if faqs_data is not None:
             # Delete existing FAQs
             db.query(TrekFAQ).filter(TrekFAQ.trek_id == db_obj.id).delete()
-            
+
             # Create new FAQs
             for faq_data in faqs_data:
                 db_faq = TrekFAQ(**faq_data.model_dump(), trek_id=db_obj.id)
                 db.add(db_faq)
-        
+
         db.commit()
         db.refresh(db_obj)
         return db_obj
-    
+
     def publish(self, db: Session, *, db_obj: Trek) -> Trek:
         """Publish a trek."""
         db_obj.status = "published"
@@ -225,28 +260,28 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
         db.commit()
         db.refresh(db_obj)
         return db_obj
-    
+
     def unpublish(self, db: Session, *, db_obj: Trek) -> Trek:
         """Unpublish a trek (set to draft)."""
         db_obj.status = "draft"
         db.commit()
         db.refresh(db_obj)
         return db_obj
-    
+
     def archive(self, db: Session, *, db_obj: Trek) -> Trek:
         """Archive a trek."""
         db_obj.status = "archived"
         db.commit()
         db.refresh(db_obj)
         return db_obj
-    
+
     def restore(self, db: Session, *, db_obj: Trek) -> Trek:
         """Restore an archived trek to draft."""
         db_obj.status = "draft"
         db.commit()
         db.refresh(db_obj)
         return db_obj
-    
+
     def duplicate(self, db: Session, *, db_obj: Trek) -> Trek:
         """Duplicate a trek."""
         # Create new trek with same data
@@ -288,7 +323,7 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
         )
         db.add(new_trek)
         db.flush()
-        
+
         # Copy itinerary
         for day in db_obj.itinerary:
             new_day = ItineraryDay(
@@ -303,7 +338,7 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
                 highlights=day.highlights,
             )
             db.add(new_day)
-        
+
         # Copy FAQs
         for faq in db_obj.faqs:
             new_faq = TrekFAQ(
@@ -313,17 +348,13 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
                 display_order=faq.display_order,
             )
             db.add(new_faq)
-        
+
         db.commit()
         db.refresh(new_trek)
         return new_trek
-    
+
     def add_itinerary_day(
-        self,
-        db: Session,
-        *,
-        trek_id: int,
-        day_in: ItineraryDayCreate
+        self, db: Session, *, trek_id: int, day_in: ItineraryDayCreate
     ) -> ItineraryDay:
         """Add an itinerary day to a trek."""
         db_day = ItineraryDay(**day_in.model_dump(), trek_id=trek_id)
@@ -331,14 +362,8 @@ class CRUDTrek(CRUDBase[Trek, TrekCreate, TrekUpdate]):
         db.commit()
         db.refresh(db_day)
         return db_day
-    
-    def add_image(
-        self,
-        db: Session,
-        *,
-        trek_id: int,
-        image_in: TrekImageCreate
-    ) -> TrekImage:
+
+    def add_image(self, db: Session, *, trek_id: int, image_in: TrekImageCreate) -> TrekImage:
         """Add an image to a trek."""
         db_img = TrekImage(**image_in.model_dump(), trek_id=trek_id)
         db.add(db_img)
