@@ -1,5 +1,6 @@
 ---
 import { api } from '@/lib/api';
+import { yearsOfExperienceValue } from '@/lib/founded';
 
 interface StatItem {
   value: string;
@@ -11,7 +12,7 @@ const defaultStats: StatItem[] = [
   { value: '50+', label: 'Trek Routes', description: 'Across the Himalayas' },
   { value: '10,000+', label: 'Happy Trekkers', description: 'And counting' },
   { value: '15+', label: 'Expert Guides', description: 'Certified professionals' },
-  { value: '8+', label: 'Years Experience', description: 'In adventure tourism' },
+  { value: yearsOfExperienceValue(), label: 'Years Experience', description: 'In adventure tourism' },
 ];
 
 let stats: StatItem[] = defaultStats;

@@ -301,6 +301,7 @@ class BlogPostListResponse(BaseModel):
     status: PostStatusEnum
     contentType: ContentTypeEnum
     createdAt: datetime
+    updatedAt: datetime
 
     class Config:
         from_attributes = True
@@ -324,6 +325,7 @@ class BlogPostListResponse(BaseModel):
             status=obj.status,
             contentType=obj.content_type,
             createdAt=obj.created_at,
+            updatedAt=obj.updated_at,
         )
 
 

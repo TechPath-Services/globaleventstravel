@@ -4,6 +4,7 @@ import Statistics from '@/components/sections/Statistics.astro';
 import CTA from '@/components/sections/CTA.astro';
 import { Image } from 'astro:assets';
 import { guidesApi, api } from '@/lib/api';
+import { FOUNDED_YEAR, yearsOfExperienceValue } from '@/lib/founded';
 import type { Guide } from '@/lib/types';
 
 let guides: Guide[] = [];
@@ -49,7 +50,7 @@ const values = [
 
 <MainLayout 
   title="About Us" 
-  description="Learn about Global Events Travels - your trusted partner for Himalayan adventures since 2016."
+  description={`Learn about Global Events Travels - your trusted partner for Himalayan adventures since ${FOUNDED_YEAR}.`}
 >
   <!-- Page Header - Blue theme -->
   <section class="bg-gradient-to-br from-secondary-600 to-secondary-500 py-16 md:py-24">
@@ -80,7 +81,7 @@ const values = [
             ) : (
               <>
                 <p>
-                  Global Events Travels was founded in 2016 by a group of passionate mountaineers who believed that everyone deserves to experience the magic of the Himalayas. What started as a small team of friends leading treks has grown into one of the most trusted adventure travel companies in India.
+                  Global Events Travels was founded in {FOUNDED_YEAR} by a group of passionate mountaineers who believed that everyone deserves to experience the magic of the Himalayas. What started as a small team of friends leading treks has grown into one of the most trusted adventure travel companies in India.
                 </p>
                 <p>
                   Our founders grew up in the mountains of Uttarakhand and Himachal Pradesh. They know every trail, every peak, and every hidden gem. This deep local knowledge, combined with international safety standards, is what sets us apart.
@@ -102,7 +103,7 @@ const values = [
             loading="lazy"
           />
           <div class="absolute -bottom-6 -left-6 bg-gradient-to-r from-primary-600 to-primary-500 text-white p-6 rounded-xl shadow-lg">
-            <div class="text-3xl font-bold">8+</div>
+            <div class="text-3xl font-bold">{yearsOfExperienceValue()}</div>
             <div class="text-sm text-white/80">Years of Excellence</div>
           </div>
         </div>

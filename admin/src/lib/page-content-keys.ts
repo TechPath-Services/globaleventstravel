@@ -13,6 +13,10 @@ export const CONTENT_PAGES = [
 
 export type ContentPage = (typeof CONTENT_PAGES)[number]["value"];
 
+/** Company founding year. Years-of-experience defaults are derived from this. */
+export const FOUNDED_YEAR = 2012;
+const yearsOfExperience = `${new Date().getFullYear() - FOUNDED_YEAR}+`;
+
 export interface SectionDefaults {
   title?: string;
   subtitle?: string;
@@ -127,7 +131,7 @@ export const SECTION_KEYS_BY_PAGE: Record<ContentPage, SectionKeyOption[]> = {
           [
             { value: "10,000+", label: "Happy Trekkers" },
             { value: "4.8", label: "Average Rating" },
-            { value: "8+", label: "Years Experience" },
+            { value: yearsOfExperience, label: "Years Experience" },
             { value: "✓", label: "No Hidden Costs" },
           ],
           null,
@@ -218,7 +222,7 @@ export const SECTION_KEYS_BY_PAGE: Record<ContentPage, SectionKeyOption[]> = {
             { value: "50+", label: "Trek Routes", description: "Across the Himalayas" },
             { value: "10,000+", label: "Happy Trekkers", description: "And counting" },
             { value: "15+", label: "Expert Guides", description: "Certified professionals" },
-            { value: "8+", label: "Years Experience", description: "In adventure tourism" },
+            { value: yearsOfExperience, label: "Years Experience", description: "In adventure tourism" },
           ],
           null,
           2
@@ -387,7 +391,7 @@ export const SECTION_KEYS_BY_PAGE: Record<ContentPage, SectionKeyOption[]> = {
           [
             { value: "10,000+", label: "Happy Trekkers", icon: "users" },
             { value: "4.8", label: "Average Rating", icon: "star" },
-            { value: "8+", label: "Years Experience", icon: "award" },
+            { value: yearsOfExperience, label: "Years Experience", icon: "award" },
             { value: "100%", label: "Safety Focused", icon: "shield" },
           ],
           null,
@@ -442,7 +446,7 @@ export const SECTION_KEYS_BY_PAGE: Record<ContentPage, SectionKeyOption[]> = {
         title: "Born in the Mountains, Built for Adventure",
         badge_text: "Our Story",
         body_html:
-          "<p>Global Events Travels was founded in 2016 by a group of passionate mountaineers who believed that everyone deserves to experience the magic of the Himalayas. What started as a small team of friends leading treks has grown into one of the most trusted adventure travel companies in India.</p><p>Our founders grew up in the mountains of Uttarakhand and Himachal Pradesh. They know every trail, every peak, and every hidden gem. This deep local knowledge, combined with international safety standards, is what sets us apart.</p><p>Today, we've helped over 10,000 trekkers from around the world discover the beauty of the Indian Himalayas. But our mission remains the same: to provide safe, sustainable, and unforgettable mountain experiences.</p>",
+          `<p>Global Events Travels was founded in ${FOUNDED_YEAR} by a group of passionate mountaineers who believed that everyone deserves to experience the magic of the Himalayas. What started as a small team of friends leading treks has grown into one of the most trusted adventure travel companies in India.</p><p>Our founders grew up in the mountains of Uttarakhand and Himachal Pradesh. They know every trail, every peak, and every hidden gem. This deep local knowledge, combined with international safety standards, is what sets us apart.</p><p>Today, we've helped over 10,000 trekkers from around the world discover the beauty of the Indian Himalayas. But our mission remains the same: to provide safe, sustainable, and unforgettable mountain experiences.</p>`,
         display_order: 1,
       },
     },
