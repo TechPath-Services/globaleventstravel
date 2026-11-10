@@ -1,6 +1,7 @@
 ---
 import MainLayout from '@/layouts/MainLayout.astro';
 import HeroTreks from '@/components/hero/HeroTreks.astro';
+import { TREKS_LISTING_HERO } from '@/lib/treks-hero';
 import PopularTreksCollection from '@/components/sections/PopularTreksCollection.astro';
 import TreksRegions from '@/components/sections/TreksRegions.astro';
 import TreksStatsBar from '@/components/sections/TreksStatsBar.astro';
@@ -305,6 +306,12 @@ try {
 <MainLayout
   title="All Himalayan Treks & Expeditions | Global Events Travels"
   description="Browse our complete collection of Himalayan treks. Filter by difficulty, budget, season, and region to find your dream mountain adventure."
+  headerVariant="overlay"
+  ogImage={TREKS_LISTING_HERO.desktopWebp}
+  preloadImages={[
+    { href: TREKS_LISTING_HERO.mobileAvif, type: 'image/avif', media: '(max-width: 799px)' },
+    { href: TREKS_LISTING_HERO.desktopAvif, type: 'image/avif', media: '(min-width: 800px)' },
+  ]}
 >
   <HeroTreks
     search={search}
