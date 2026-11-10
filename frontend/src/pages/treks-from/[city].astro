@@ -19,7 +19,7 @@ export const prerender = false;
 const { city: slug } = Astro.params;
 const city: DepartureCity | null = slug ? await citiesApi.getBySlug(slug).catch(() => null) : null;
 if (!city) {
-  return Astro.redirect('/treks-from/');
+  return Astro.redirect('/treks-from');
 }
 
 const settings = await loadSettings();
@@ -65,8 +65,8 @@ const pageDescription =
 const structuredData = graph(
   breadcrumbJsonLd(Astro.url.origin, [
     { name: 'Home', path: '/' },
-    { name: 'Treks from your city', path: '/treks-from/' },
-    { name: city.name, path: `/treks-from/${city.slug}/` },
+    { name: 'Treks from your city', path: '/treks-from' },
+    { name: city.name, path: `/treks-from/${city.slug}` },
   ]),
   city.faqs.length > 0 && faqJsonLd(city.faqs),
   city.reachable_treks.length > 0 && {
@@ -89,7 +89,7 @@ const structuredData = graph(
   <section class="relative overflow-hidden bg-secondary-700">
     {city.hero_image && <img src={city.hero_image} alt="" class="absolute inset-0 h-full w-full object-cover opacity-25" loading="eager" />}
     <div class="container-custom relative py-14 text-white md:py-20">
-      <nav class="mb-4 text-sm text-white/70"><a href="/treks-from/" class="text-white/80 hover:text-white">Treks from your city</a> / {city.name}</nav>
+      <nav class="mb-4 text-sm text-white/70"><a href="/treks-from" class="text-white/80 hover:text-white">Treks from your city</a> / {city.name}</nav>
       <h1 class="mb-3 text-4xl font-bold text-white md:text-5xl">Treks from {city.name}</h1>
       {city.last_verified && (
         <p class="text-white/80">Routes last verified {formatDate(city.last_verified)}{city.verified_by ? ` by ${city.verified_by}` : ''}</p>
@@ -115,7 +115,7 @@ const structuredData = graph(
               Most popular from {city.name}: <a href={`/treks/${headlineTrek.slug}`} class="font-semibold">{headlineTrek.name}</a>. {headlineRouteText}
             </p>
             <div class="mt-4 flex flex-wrap gap-3">
-              <a href={`/tools/trek-budget-calculator/?trek=${headlineTrek.slug}&from=${city.slug}`} class="btn-primary">Plan my total cost</a>
+              <a href={`/tools/trek-budget-calculator?trek=${headlineTrek.slug}&from=${city.slug}`} class="btn-primary">Plan my total cost</a>
               <a href="#city-lead" class="btn-secondary">Get this route on WhatsApp</a>
             </div>
           </div>
@@ -182,7 +182,7 @@ const structuredData = graph(
             {treks.length > 0 && (
               <div class="mt-4 flex flex-wrap gap-2">
                 {treks.map((t) => (
-                  <a href={`/tools/trek-budget-calculator/?trek=${t.slug}&from=${city.slug}`} class="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:border-primary-400">
+                  <a href={`/tools/trek-budget-calculator?trek=${t.slug}&from=${city.slug}`} class="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:border-primary-400">
                     {t.name}: total cost from {city.name} →
                   </a>
                 ))}
@@ -231,7 +231,7 @@ const structuredData = graph(
       <aside class="space-y-4">
         <div class="lg:sticky lg:top-24 space-y-4">
           {student && studentSaving > 0 && (
-            <a href="/student-discount/" class="block rounded-xl bg-green-50 p-5 ring-1 ring-green-200">
+            <a href="/student-discount" class="block rounded-xl bg-green-50 p-5 ring-1 ring-green-200">
               <p class="font-bold text-green-800">Students from {city.name} colleges</p>
               <p class="text-sm text-green-900">{discountHeadline(student)} with a valid student ID →</p>
             </a>
@@ -248,7 +248,7 @@ const structuredData = graph(
               notes={`City page: ${city.name}`}
             />
           </div>
-          <a href="/tools/winter-trek-quiz/" class="block rounded-xl border border-neutral-200 bg-white p-5 text-center font-semibold hover:border-primary-300">
+          <a href="/tools/winter-trek-quiz" class="block rounded-xl border border-neutral-200 bg-white p-5 text-center font-semibold hover:border-primary-300">
             Not sure which trek? Take the 60-second quiz →
           </a>
         </div>

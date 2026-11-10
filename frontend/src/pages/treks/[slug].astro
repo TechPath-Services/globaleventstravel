@@ -1,7 +1,7 @@
 ---
 import MainLayout from '@/layouts/MainLayout.astro';
 import { DIFFICULTY_LABELS } from '@/lib/constants';
-import { getSiteSettings } from '@/lib/api';
+import { blogApi, getSiteSettings } from '@/lib/api';
 
 const { siteConfig } = await getSiteSettings();
 import type { Trek, TrekBatch } from '@/lib/types';
@@ -13,6 +13,10 @@ import { renderContent } from '@/lib/markdown';
 import { loadCities, loadSettings } from '@/lib/marketing/server';
 import { studentDiscountAmount } from '@/lib/marketing/discount';
 import { sameBase } from '@/lib/marketing/format';
+import { notFoundResponse } from '@/lib/seo/not-found';
+import { selectRelatedGuides, trekSearchQuery } from '@/lib/seo/mentions';
+import { heroImageAttrs } from '@/lib/seo/images';
+import { trekDocumentTitle, trekMetaDescription, trekStructuredData } from '@/lib/seo/trek-structured-data';
 
 // Enable SSR for this page - fetch trek data dynamically at request time
 export const prerender = false;
@@ -41,9 +45,12 @@ try {
   errorMessage = 'Failed to connect to server';
 }
 
-// If trek not found, return 404
+// Unknown slugs are a real 404. Short aliases are 301s in middleware, before this runs.
 if (!trek) {
-  return Astro.redirect('/treks');
+  return notFoundResponse({
+    title: 'Trek not found',
+    message: 'We could not find that trek. It may have been renamed — browse the current treks instead.',
+  });
 }
 
 const difficultyInfo = DIFFICULTY_LABELS[trek.difficulty] || DIFFICULTY_LABELS.moderate;
@@ -192,6 +199,28 @@ const formatBatchDate = (d: string) =>
   new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 const openBatchCount = batches.filter(b => !b.is_sold_out).length;
+
+const pageTitle = trekDocumentTitle(trek, startingPrice);
+const pageDescription = trekMetaDescription(trek, startingPrice);
+const canonicalOrigin = Astro.site?.origin ?? Astro.url.origin;
+const trekJsonLd = trekStructuredData(trek, {
+  origin: canonicalOrigin,
+  providerName: siteConfig.name,
+  price: startingPrice,
+  soldOut: batches.length > 0 && openBatchCount === 0,
+});
+const lcpImage = heroImageAttrs(featuredImage, { width: 1920, height: 600 });
+
+let relatedGuides: { title: string; slug: string; excerpt?: string | null }[] = [];
+const guideQuery = trekSearchQuery(trek);
+if (guideQuery) {
+  try {
+    const guideRes = await blogApi.listPosts(0, 8, undefined, undefined, guideQuery, 'published');
+    relatedGuides = selectRelatedGuides(guideRes.items || [], 4);
+  } catch (error) {
+    console.error('Error fetching related guides:', error);
+  }
+}
 // Annotate each batch with availability status to avoid <, <= comparisons in template
 type BatchWithStatus = TrekBatch & { status: 'available' | 'few_left' | 'sold_out' };
 const batchesByMonthAnnotated: Record<string, BatchWithStatus[]> = {};
@@ -208,9 +237,11 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
 ---
 
 <MainLayout
-  title={trek.name}
-  description={trek.short_description || trek.description}
+  title={pageTitle}
+  description={pageDescription}
   ogImage={featuredImage}
+  structuredData={trekJsonLd}
+  lcpImage={lcpImage}
 >
   <TrekHero
     trek={trek}
@@ -629,12 +660,12 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
               <div class="bg-white rounded-xl border border-neutral-200 p-6 space-y-3">
                 <h3 class="font-bold text-neutral-900">Plan this trek</h3>
                 {studentSaving > 0 && (
-                  <a href="/student-discount/" class="block rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800 hover:bg-green-100">
+                  <a href="/student-discount" class="block rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800 hover:bg-green-100">
                     Students pay {formatPrice(startingPrice - studentSaving)} with a valid ID →
                   </a>
                 )}
                 {calculatorEnabled && (
-                  <a href={`/tools/trek-budget-calculator/?trek=${trek.slug}`} class="block text-sm font-medium">
+                  <a href={`/tools/trek-budget-calculator?trek=${trek.slug}`} class="block text-sm font-medium">
                     What will it cost me all-in? →
                   </a>
                 )}
@@ -645,7 +676,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                     </p>
                     <div class="flex flex-wrap gap-2">
                       {citiesForTrek.map((c) => (
-                        <a href={`/treks-from/${c.slug}/`} class="rounded-full border border-neutral-300 px-3 py-1 hover:border-primary-400">
+                        <a href={`/treks-from/${c.slug}`} class="rounded-full border border-neutral-300 px-3 py-1 hover:border-primary-400">
                           From {c.name}
                         </a>
                       ))}
@@ -653,7 +684,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                   </div>
                 )}
                 {inQuizSeason && (
-                  <a href="/tools/winter-trek-quiz/" class="block text-sm font-medium">
+                  <a href="/tools/winter-trek-quiz" class="block text-sm font-medium">
                     Not sure it's the one? Take the winter trek quiz →
                   </a>
                 )}
@@ -691,6 +722,27 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
       </div>
     </div>
   </section>
+
+  {relatedGuides.length > 0 && (
+    <section class="section bg-white border-t border-neutral-100" aria-labelledby="related-guides-heading">
+      <div class="container-custom">
+        <h2 id="related-guides-heading" class="text-3xl font-bold text-neutral-900 mb-3">Related guides</h2>
+        <p class="text-neutral-600 max-w-2xl mb-8">
+          Published articles that mention {trek.name}.
+        </p>
+        <ul class="grid gap-4 md:grid-cols-2">
+          {relatedGuides.map((guide) => (
+            <li>
+              <a href={`/blog/${guide.slug}`} class="block h-full rounded-xl border border-neutral-200 bg-neutral-50 p-5 hover:border-primary-400 hover:bg-white transition-colors">
+                <span class="block text-lg font-semibold text-secondary-700">{guide.title}</span>
+                {guide.excerpt && <span class="mt-2 block text-sm text-neutral-600 line-clamp-3">{guide.excerpt}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
 
   <!-- Other Related Treks Section -->
   {relatedTreks.length > 0 && (

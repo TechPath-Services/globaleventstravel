@@ -45,7 +45,7 @@ export default function WinterTrekQuiz({ treks, cities, resultBasePath }: Winter
     setFinishing(true);
     track('quiz_complete', { result: result.primary.trek.slug, from_city: complete.from });
     const params = answersToParams(complete);
-    window.location.href = `${resultBasePath}${result.primary.trek.slug}/?${params.toString()}`;
+    window.location.href = `${resultBasePath}${result.primary.trek.slug}?${params.toString()}`;
   };
 
   if (noMatch) {

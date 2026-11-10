@@ -15,7 +15,7 @@ const offer = settings?.student_discount;
 const live = offer && offer.enabled && offer.percent > 0 ? offer : null;
 const headline = live ? discountHeadline(live) : '';
 const showcase = (seasonTreks.length ? seasonTreks : allTreks).slice(0, 6);
-const pageUrl = new URL('/student-discount/', Astro.url.origin).href;
+const pageUrl = new URL('/student-discount', Astro.url.origin).href;
 const shareText = `Students get ${headline} Himalayan treks with a valid college ID.`;
 const faqs = offer?.faqs ?? [];
 
@@ -23,7 +23,7 @@ const structuredData = graph(
   faqs.length > 0 && faqJsonLd(faqs),
   breadcrumbJsonLd(Astro.url.origin, [
     { name: 'Home', path: '/' },
-    { name: 'Student discount', path: '/student-discount/' },
+    { name: 'Student discount', path: '/student-discount' },
   ]),
 );
 ---
@@ -105,7 +105,7 @@ const structuredData = graph(
     <section class="section bg-neutral-50">
       <div class="container-custom">
         <h2 class="mb-2 text-3xl font-bold">Treks students love this season</h2>
-        <p class="mb-8 text-neutral-600">Live prices from our booking system. Not sure which one? <a href="/tools/winter-trek-quiz/" class="underline">Take the 60-second quiz</a>.</p>
+        <p class="mb-8 text-neutral-600">Live prices from our booking system. Not sure which one? <a href="/tools/winter-trek-quiz" class="underline">Take the 60-second quiz</a>.</p>
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {showcase.map((t) => {
             const price = lowestPrice(t);
@@ -125,7 +125,7 @@ const structuredData = graph(
           })}
         </div>
         <p class="mt-6 text-sm text-neutral-600">
-          Convincing your group? Send them the <a href="/tools/trek-budget-calculator/" class="underline">budget calculator</a> with your exact plan.
+          Convincing your group? Send them the <a href="/tools/trek-budget-calculator" class="underline">budget calculator</a> with your exact plan.
         </p>
       </div>
     </section>

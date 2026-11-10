@@ -1,0 +1,35 @@
+---
+export const prerender = false;
+
+import { notFoundResponse } from '@/lib/seo/not-found';
+import { productTrekRedirect } from '@/lib/seo/redirects';
+
+const slug = (Astro.params.slug || '').trim().toLowerCase();
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL || 'http://localhost:8000';
+let exists = false;
+
+if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+  try {
+    const response = await fetch(`${apiBase}/api/v1/treks/${slug}`);
+    exists = response.ok;
+  } catch {
+    exists = false;
+  }
+}
+
+const target = productTrekRedirect(slug, exists);
+if (target) {
+  return new Response(null, {
+    status: 301,
+    headers: {
+      Location: new URL(target, Astro.url.origin).href,
+      'Cache-Control': 'public, max-age=86400',
+    },
+  });
+}
+
+return notFoundResponse({
+  title: 'Page not found',
+  message: 'That product page is not a current trek. Browse the treks we run now.',
+});
+---

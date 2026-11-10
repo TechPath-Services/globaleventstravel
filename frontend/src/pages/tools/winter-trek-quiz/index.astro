@@ -56,13 +56,13 @@ const structuredData = graph(
     applicationCategory: 'TravelApplication',
     operatingSystem: 'Any',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
-    url: new URL('/tools/winter-trek-quiz/', Astro.url.origin).href,
+    url: new URL('/tools/winter-trek-quiz', Astro.url.origin).href,
   },
   faqJsonLd(faqs),
   breadcrumbJsonLd(Astro.url.origin, [
     { name: 'Home', path: '/' },
-    { name: 'Trek planning tools', path: '/tools/' },
-    { name: title, path: '/tools/winter-trek-quiz/' },
+    { name: 'Trek planning tools', path: '/tools' },
+    { name: title, path: '/tools/winter-trek-quiz' },
   ]),
 );
 ---
@@ -153,7 +153,7 @@ const structuredData = graph(
       </div>
       <p class="mt-8 text-sm text-neutral-600">
         Writing about winter treks? You're welcome to link to this quiz. Also see our
-        <a href="/tools/trek-budget-calculator/" class="underline">trek budget calculator</a>.
+        <a href="/tools/trek-budget-calculator" class="underline">trek budget calculator</a>.
       </p>
     </div>
   </section>

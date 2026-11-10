@@ -21,8 +21,8 @@ const calculator = settings?.calculator ?? DEFAULT_SETTINGS_FALLBACK.calculator;
 const student = settings?.student_discount ?? DEFAULT_SETTINGS_FALLBACK.student_discount;
 const enabled = calculator.enabled && treks.length > 0;
 
-const pageUrl = new URL('/tools/trek-budget-calculator/', Astro.url.origin).href;
-const embedUrl = new URL('/tools/trek-budget-calculator/embed/', Astro.url.origin).href;
+const pageUrl = new URL('/tools/trek-budget-calculator', Astro.url.origin).href;
+const embedUrl = new URL('/tools/trek-budget-calculator/embed', Astro.url.origin).href;
 const embedSnippet = `<iframe src="${embedUrl}" width="100%" height="900" style="border:0;max-width:720px" loading="lazy" title="Trek budget calculator"></iframe>\n<p><a href="${pageUrl}">Trek budget calculator</a> by Global Events Travels</p>`;
 
 const faqs = [
@@ -52,8 +52,8 @@ const structuredData = graph(
   faqJsonLd(faqs),
   breadcrumbJsonLd(Astro.url.origin, [
     { name: 'Home', path: '/' },
-    { name: 'Trek planning tools', path: '/tools/' },
-    { name: 'Trek budget calculator', path: '/tools/trek-budget-calculator/' },
+    { name: 'Trek planning tools', path: '/tools' },
+    { name: 'Trek budget calculator', path: '/tools/trek-budget-calculator' },
   ]),
 );
 ---
