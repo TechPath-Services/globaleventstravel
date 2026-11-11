@@ -2,14 +2,26 @@
 FastAPI application entry point.
 Global Events Travels API
 """
+
 import os
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
+from sqlalchemy import event
+from sqlalchemy.orm import Session as OrmSession
+
 from app.api.v1.router import api_router
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
+from app.services.public_cache import clear_public_cache
+
+
+@event.listens_for(OrmSession, "after_commit")
+def _invalidate_public_trek_cache(session):
+    """Batch and trek edits become visible on the public site within one request."""
+    clear_public_cache()
 
 
 @asynccontextmanager
@@ -22,19 +34,29 @@ async def lifespan(app: FastAPI):
     # Ensure data directory exists for SQLite
     if settings.is_sqlite:
         os.makedirs("data", exist_ok=True)
-    
+
     # Import all models to register them
     from app.db.models import (
-        Trek, TrekFAQ, Expedition, Guide, Booking, Lead,
-        ContactMessage, Testimonial, Office, BlogPost, Media, EmailLog
+        BlogPost,
+        Booking,
+        ContactMessage,
+        EmailLog,
+        Expedition,
+        Guide,
+        Lead,
+        Media,
+        Office,
+        Testimonial,
+        Trek,
+        TrekFAQ,
     )
-    
+
     # Use Alembic migrations if enabled, otherwise use create_all()
     if settings.USE_ALEMBIC_MIGRATIONS:
         try:
-            from alembic.config import Config
             from alembic import command
-            
+            from alembic.config import Config
+
             alembic_cfg = Config("alembic.ini")
             # Run migrations to head
             command.upgrade(alembic_cfg, "head")
@@ -46,12 +68,13 @@ async def lifespan(app: FastAPI):
         # Default behavior: use create_all() for backward compatibility
         Base.metadata.create_all(bind=engine)
 
-    from app.db.schema_patch import ensure_additive_columns
+    from app.db.schema_patch import ensure_additive_columns, ensure_lookup_indexes
 
     ensure_additive_columns(engine)
-    
+    ensure_lookup_indexes(engine)
+
     yield
-    
+
     # Cleanup (if needed)
     pass
 
@@ -113,10 +136,10 @@ def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.DEBUG,
     )
-
