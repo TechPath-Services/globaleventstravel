@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.models.marketing import DepartureCity, MarketingSettings
 from app.db.models.trek import Trek
 from app.models.marketing import CityPageRules, MarketingBatch, MarketingSettingsData, MarketingTrek
+from app.services.departures import today_in_kolkata
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,7 @@ def list_marketing_treks(
     db: Session, *, months: Optional[Sequence[str]] = None, today: Optional[date] = None
 ) -> List[MarketingTrek]:
     """Published treks (optionally only those whose best_season overlaps `months`)."""
-    today = today or date.today()
+    today = today or today_in_kolkata()
     query = db.query(Trek).options(selectinload(Trek.batches)).filter(Trek.status == "published")
     if months:
         season_text = cast(Trek.best_season, String)
@@ -153,7 +154,7 @@ def treks_for_pickup_bases(
     wanted = {normalize_base(b) for b in bases if b}
     if not wanted:
         return []
-    today = today or date.today()
+    today = today or today_in_kolkata()
     treks = (
         db.query(Trek)
         .options(selectinload(Trek.batches))

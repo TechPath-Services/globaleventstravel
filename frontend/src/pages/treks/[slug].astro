@@ -5,6 +5,8 @@ import { blogApi, getSiteSettings } from '@/lib/api';
 
 const { siteConfig } = await getSiteSettings();
 import type { Trek, TrekBatch } from '@/lib/types';
+import { cachedJson } from '@/lib/http-cache';
+import { isBookableDeparture } from '@/lib/trek-departures';
 import TrekLeadForm from '@/components/forms/TrekLeadForm';
 import MobileStickyForm from '@/components/forms/MobileStickyForm';
 import TrekCard from '@/components/trek/TrekCard.astro';
@@ -29,16 +31,34 @@ const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL || 'http://localhost:80
 
 let trek: Trek | null = null;
 let errorMessage = '';
+let batches: TrekBatch[] = [];
+let relatedTreks: Trek[] = [];
 
+// Trek, bookable batches, and related treks are independent reads.
+// They used to run one after another, and the batch call reloaded the whole trek.
 try {
-  const response = await fetch(`${API_BASE_URL}/api/v1/treks/${slug}`);
-  
-  if (response.ok) {
-    trek = await response.json();
-  } else if (response.status === 404) {
+  const [trekRes, batchRes, relatedRes] = await Promise.all([
+    cachedJson(`${API_BASE_URL}/api/v1/treks/${slug}`),
+    cachedJson(`${API_BASE_URL}/api/v1/treks/${slug}/batches/public`),
+    cachedJson(`${API_BASE_URL}/api/v1/treks/${slug}/related?limit=4`),
+  ]);
+
+  if (trekRes.ok && trekRes.body) {
+    trek = trekRes.body as Trek;
+  } else if (trekRes.status === 404) {
     errorMessage = 'Trek not found';
   } else {
     errorMessage = 'Failed to load trek details';
+  }
+  if (batchRes.ok && Array.isArray(batchRes.body)) {
+    batches = (batchRes.body as TrekBatch[]).filter(
+      (batch) => batch.is_active !== false && isBookableDeparture(batch.start_date)
+    );
+  }
+  if (relatedRes.ok) {
+    const relatedBody = relatedRes.body as Trek[] | { items?: Trek[] } | null;
+    const items = Array.isArray(relatedBody) ? relatedBody : relatedBody?.items || [];
+    relatedTreks = items.filter((item) => !trek || item.id !== trek.id).slice(0, 4);
   }
 } catch (error) {
   console.error('Error fetching trek:', error);
@@ -70,40 +90,6 @@ const bestSeason = trek.best_season ?? [];
 const featuredImage = trek.featured_image || '/images/home/hero-bg.webp';
 const nights = Math.max(0, trek.duration - 1);
 const durationDisplay = `${nights}N / ${trek.duration}D`;
-
-// Fetch related treks by location
-let relatedTreks: Trek[] = [];
-try {
-  const relatedResponse = await fetch(
-    `${API_BASE_URL}/api/v1/treks?location=${encodeURIComponent(trek.location)}&status=published&limit=5`
-  );
-  if (relatedResponse.ok) {
-    const relatedData = await relatedResponse.json();
-    // Filter out the current trek and limit to 4
-    relatedTreks = (relatedData.items || [])
-      .filter((t: Trek) => t.id !== trek.id)
-      .slice(0, 4);
-  }
-} catch (error) {
-  console.error('Error fetching related treks:', error);
-}
-
-// If no related treks by location, try fetching featured treks
-if (relatedTreks.length === 0) {
-  try {
-    const featuredResponse = await fetch(
-      `${API_BASE_URL}/api/v1/treks/featured?limit=5`
-    );
-    if (featuredResponse.ok) {
-      const featuredData = await featuredResponse.json();
-      relatedTreks = (featuredData || [])
-        .filter((t: Trek) => t.id !== trek.id)
-        .slice(0, 4);
-    }
-  } catch (error) {
-    console.error('Error fetching featured treks:', error);
-  }
-}
 
 // Use itinerary from API if available, otherwise use fallback
 const itinerary = trek.itinerary && trek.itinerary.length > 0 
@@ -149,13 +135,6 @@ const notIncluded = trek.excludes && trek.excludes.length > 0
 const whatsappNumber = (siteConfig.phone || '919600036667').replace(/\D/g, '').replace(/^0/, '91') || '919600036667';
 const whatsappBaseUrl = `https://wa.me/${whatsappNumber}`;
 const whatsappTrekMessage = encodeURIComponent(`Hi, I'm interested in the ${trek.name} trek. Please share details.`);
-
-// Fetch public batches
-let batches: TrekBatch[] = [];
-try {
-  const batchRes = await fetch(`${API_BASE_URL}/api/v1/treks/${slug}/batches/public`);
-  if (batchRes.ok) batches = await batchRes.json();
-} catch { /* batches section hidden */ }
 
 // A live "starting from" price: use the lowest open batch override when one is set.
 const availableBatchPrices = batches
@@ -751,7 +730,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
         <div class="text-center mb-10">
           <h2 class="text-3xl font-bold text-neutral-900 mb-3">Other Related Treks</h2>
           <p class="text-neutral-600 max-w-2xl mx-auto">
-            Explore more adventures in {trek.location} and nearby regions
+            More treks in the same season and region
           </p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

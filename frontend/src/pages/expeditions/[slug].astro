@@ -3,7 +3,7 @@ import ExpeditionLayout from '@/layouts/ExpeditionLayout.astro';
 import { expeditionsApi } from '@/lib/api';
 import type { Expedition } from '@/lib/types';
 import TrekLeadForm from '@/components/forms/TrekLeadForm';
-import { WHATSAPP } from '@/lib/constants';
+import { API_BASE_URL, WHATSAPP } from '@/lib/constants';
 import { renderContent } from '@/lib/markdown';
 import { notFoundResponse } from '@/lib/seo/not-found';
 
@@ -44,6 +44,13 @@ const difficultyColors = {
 };
 
 const whatsappBaseUrl = `https://wa.me/${WHATSAPP.number}`;
+
+const rawItineraryPdf = (expedition.itineraryPdfUrl || '').trim();
+const itineraryPdfUrl = rawItineraryPdf
+  ? (/^https?:\/\//i.test(rawItineraryPdf)
+      ? rawItineraryPdf
+      : `${API_BASE_URL}${rawItineraryPdf.startsWith('/') ? '' : '/'}${rawItineraryPdf}`)
+  : '';
 ---
 
 <ExpeditionLayout title={title} description={description} ogImage={expedition.image}>
@@ -169,7 +176,22 @@ const whatsappBaseUrl = `https://wa.me/${WHATSAPP.number}`;
 
           <!-- Day-by-Day Itinerary -->
           <div class="bg-white rounded-2xl border border-neutral-200 p-6 md:p-8">
-            <h2 class="text-2xl font-bold text-secondary-600 mb-6">Day-by-Day Itinerary</h2>
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <h2 class="text-2xl font-bold text-secondary-600">Day-by-Day Itinerary</h2>
+              {itineraryPdfUrl && (
+                <a
+                  href={itineraryPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 text-sm font-semibold text-primary-700 hover:text-primary-800"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M4 16V6a2 2 0 012-2h8.5L20 9.5V16a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
+                  </svg>
+                  Download PDF
+                </a>
+              )}
+            </div>
             <div class="space-y-4">
               {(expedition.itinerary || []).map((day) => (
                 <div class="relative pl-8 pb-6 border-l-2 border-primary-200 last:border-0 last:pb-0">
@@ -445,6 +467,19 @@ const whatsappBaseUrl = `https://wa.me/${WHATSAPP.number}`;
                 <a href="/contact?interest=expedition" class="w-full justify-center inline-flex items-center px-6 py-3 border-2 border-secondary-600 text-secondary-600 font-medium rounded-lg hover:bg-secondary-50 transition-colors">
                   Contact Us
                 </a>
+                {itineraryPdfUrl && (
+                  <a
+                    href={itineraryPdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="w-full justify-center inline-flex items-center gap-2 px-6 py-3 border-2 border-primary-500 text-primary-700 font-medium rounded-lg hover:bg-primary-50 transition-colors"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M4 16V6a2 2 0 012-2h8.5L20 9.5V16a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
+                    </svg>
+                    Download PDF itinerary
+                  </a>
+                )}
               </div>
             </div>
 

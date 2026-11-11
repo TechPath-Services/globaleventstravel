@@ -201,6 +201,7 @@ export interface Expedition {
   rating: number;
   reviewCount: number;
   featured: boolean;
+  itineraryPdfUrl?: string | null;
 }
 
 export interface ExpeditionDay {

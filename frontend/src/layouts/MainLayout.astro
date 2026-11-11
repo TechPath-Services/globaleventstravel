@@ -9,11 +9,19 @@ import { normalizeRedirectPath } from '@/lib/seo/redirects';
 import { siteGraphJsonLd } from '@/lib/seo/trek-structured-data';
 import '@/styles/global.css';
 
+interface PreloadImage {
+  href: string;
+  type?: string;
+  media?: string;
+}
+
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
-  headerVariant?: 'default' | 'expedition';
+  headerVariant?: 'default' | 'expedition' | 'overlay';
+  /** LCP images for pages whose hero sits under the header. */
+  preloadImages?: PreloadImage[];
   /** Optional extra JSON-LD (e.g. BlogPosting). Site Organization/WebSite JSON-LD is always included. */
   structuredData?: Record<string, unknown> | unknown[] | null;
   /** Page-level robots override. Faceted URLs are noindex,follow unless staging forces noindex. */
@@ -27,6 +35,7 @@ const {
   description = 'Discover amazing treks and expeditions in the Himalayas with Global Events Travels.',
   ogImage = '/images/home/hero-bg.webp',
   headerVariant = 'default',
+  preloadImages = [],
   structuredData = null,
   robots = null,
   lcpImage = null,
@@ -101,6 +110,16 @@ const jsonLd = siteGraphJsonLd({
         fetchpriority="high"
       />
     )}
+    {preloadImages.map((image) => (
+      <link
+        rel="preload"
+        as="image"
+        href={image.href}
+        type={image.type}
+        media={image.media}
+        fetchpriority="high"
+      />
+    ))}
     
     <!-- Fonts: preconnect + async load to avoid render-blocking -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -110,7 +129,7 @@ const jsonLd = siteGraphJsonLd({
     <noscript><link href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
     
     <!-- Theme color -->
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content={headerVariant === 'overlay' ? '#061018' : '#ffffff'} />
     
     <!-- JSON-LD for SEO (Organization + WebSite) -->
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

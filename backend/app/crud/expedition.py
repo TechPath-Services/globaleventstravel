@@ -249,6 +249,7 @@ class CRUDExpedition(CRUDBase[Expedition, ExpeditionCreate, ExpeditionUpdate]):
             review_count=0,
             featured=False,
             status="draft",
+            itinerary_pdf_url=original.itinerary_pdf_url,
         )
         
         db.add(new_exp)

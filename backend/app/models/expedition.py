@@ -155,6 +155,7 @@ class ExpeditionResponse(BaseModel):
     reviewCount: int
     featured: bool
     status: str
+    itineraryPdfUrl: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
