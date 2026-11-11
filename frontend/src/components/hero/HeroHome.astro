@@ -3,6 +3,7 @@ import LeadCaptureForm from '@/components/forms/LeadCaptureForm';
 import MobileStickyForm from '@/components/forms/MobileStickyForm';
 import { api } from '@/lib/api';
 import { LEAD_FORM_CONFIG } from '@/lib/constants';
+import { heroImageAttrs } from '@/lib/seo/images';
 
 interface Props {
   backgroundImage?: string;
@@ -80,7 +81,7 @@ try {
     if (heroSection.badge_text) badgeText = heroSection.badge_text;
     if (heroSection.title) title = heroSection.title;
     if (heroSection.subtitle) subtitle = heroSection.subtitle;
-    if (heroSection.image_url) backgroundImage = heroSection.image_url;
+    if (heroSection.image_url && !backgroundImageProp) backgroundImage = heroSection.image_url;
 
     const meta = parseJson<{ highlight_word?: string }>(heroSection.body_html);
     if (meta?.highlight_word) highlightWord = meta.highlight_word;
@@ -139,6 +140,8 @@ const titleParts = highlightWord && title.includes(highlightWord)
       };
     })()
   : null;
+
+const heroImage = heroImageAttrs(backgroundImage, { width: 1920, height: 1080 });
 ---
 
 <section
@@ -148,14 +151,16 @@ const titleParts = highlightWord && title.includes(highlightWord)
   <!-- Full-bleed background -->
   <div class="absolute inset-0">
     <img
-      src={backgroundImage}
+      src={heroImage.src}
+      srcset={heroImage.srcset}
+      sizes={heroImage.sizes}
       alt="Himalayan mountain landscape with trekkers"
       class="hero-home__bg w-full h-full object-cover"
-      width="1920"
-      height="1080"
-      loading="eager"
-      fetchpriority="high"
-      decoding="async"
+      width={heroImage.width}
+      height={heroImage.height}
+      loading={heroImage.loading}
+      fetchpriority={heroImage.fetchpriority}
+      decoding={heroImage.decoding}
     />
     <div class="absolute inset-0 bg-gradient-to-r from-secondary-900/85 via-secondary-800/70 to-secondary-900/35"></div>
     <div class="absolute inset-0 bg-gradient-to-t from-secondary-900/60 via-transparent to-secondary-900/20"></div>

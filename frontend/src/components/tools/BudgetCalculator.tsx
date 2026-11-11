@@ -170,7 +170,7 @@ export default function BudgetCalculator({
               <div>
                 <label className={label} htmlFor="calc-students">Students with valid ID</label>
                 <Stepper id="calc-students" value={inputs.students} min={0} max={inputs.people} onChange={(v) => update({ students: v })} />
-                <p className="mt-1 text-xs text-neutral-500">Each saves {formatInr(perStudent)}. <a href="/student-discount/" className="underline">How it works</a></p>
+                <p className="mt-1 text-xs text-neutral-500">Each saves {formatInr(perStudent)}. <a href="/student-discount" className="underline">How it works</a></p>
               </div>
             )}
           </div>

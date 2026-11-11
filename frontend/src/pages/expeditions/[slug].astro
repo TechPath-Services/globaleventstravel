@@ -5,6 +5,7 @@ import type { Expedition } from '@/lib/types';
 import TrekLeadForm from '@/components/forms/TrekLeadForm';
 import { API_BASE_URL, WHATSAPP } from '@/lib/constants';
 import { renderContent } from '@/lib/markdown';
+import { notFoundResponse } from '@/lib/seo/not-found';
 
 export const prerender = false;
 
@@ -19,7 +20,10 @@ try {
 }
 
 if (!expedition) {
-  return Astro.redirect('/expeditions');
+  return notFoundResponse({
+    title: 'Expedition not found',
+    message: 'We could not find that expedition. See the expeditions we run now.',
+  });
 }
 
 const title = `${expedition.name} | ${expedition.summitAltitude}m Expedition`;

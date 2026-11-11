@@ -1,5 +1,6 @@
 ---
 import type { Trek } from '@/lib/types';
+import { heroImageAttrs } from '@/lib/seo/images';
 
 interface Props {
   trek: Trek;
@@ -45,18 +46,21 @@ const showRoute = Boolean(routeFrom && routeTo);
 const altitudeLabel = maxAltitude > 0 ? `${maxAltitude.toLocaleString('en-IN')}m` : 'On request';
 const distanceLabel = distance > 0 ? `${distance}km` : 'On request';
 const seasonLabel = bestSeason.length > 0 ? bestSeason.join(' – ') : '';
+const heroImage = heroImageAttrs(featuredImage, { width: 1920, height: 600 });
 ---
 
 <section class="trek-hero relative isolate overflow-hidden bg-secondary-900 text-white">
   <img
-    src={featuredImage}
+    src={heroImage.src}
+    srcset={heroImage.srcset}
+    sizes={heroImage.sizes}
     alt={`${trek.name} landscape`}
     class="absolute inset-0 h-full w-full object-cover object-center"
-    width="1920"
-    height="600"
-    loading="eager"
-    fetchpriority="high"
-    decoding="async"
+    width={heroImage.width}
+    height={heroImage.height}
+    loading={heroImage.loading}
+    fetchpriority={heroImage.fetchpriority}
+    decoding={heroImage.decoding}
   />
   <div class="absolute inset-0 bg-gradient-to-r from-[#041018]/90 via-[#07121b]/45 to-transparent"></div>
   <div class="absolute inset-0 bg-gradient-to-t from-[#03080d]/75 via-transparent to-black/15"></div>

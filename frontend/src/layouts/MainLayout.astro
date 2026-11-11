@@ -3,6 +3,10 @@ import Header from '@/components/layout/Header.astro';
 import Footer from '@/components/layout/Footer.astro';
 import { getSiteSettings } from '@/lib/api';
 import { FOUNDED_YEAR } from '@/lib/founded';
+import type { HeroImageAttrs } from '@/lib/seo/images';
+import { indexDirectiveForUrl, resolveRobots } from '@/lib/seo/indexing';
+import { normalizeRedirectPath } from '@/lib/seo/redirects';
+import { siteGraphJsonLd } from '@/lib/seo/trek-structured-data';
 import '@/styles/global.css';
 
 interface PreloadImage {
@@ -20,6 +24,10 @@ interface Props {
   preloadImages?: PreloadImage[];
   /** Optional extra JSON-LD (e.g. BlogPosting). Site Organization/WebSite JSON-LD is always included. */
   structuredData?: Record<string, unknown> | unknown[] | null;
+  /** Page-level robots override. Faceted URLs are noindex,follow unless staging forces noindex. */
+  robots?: string | null;
+  /** LCP image discovered in the head, before the body hero is parsed. */
+  lcpImage?: Pick<HeroImageAttrs, 'src' | 'srcset' | 'sizes' | 'type'> | null;
 }
 
 const { 
@@ -29,37 +37,33 @@ const {
   headerVariant = 'default',
   preloadImages = [],
   structuredData = null,
+  robots = null,
+  lcpImage = null,
 } = Astro.props;
 
 const { siteConfig, socialLinks } = await getSiteSettings();
-const siteTitle = `${title} | ${siteConfig.name}`;
-const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).href;
+const trimmedTitle = title.trim();
+const siteTitle = trimmedTitle.endsWith(siteConfig.name)
+  ? trimmedTitle
+  : `${trimmedTitle} | ${siteConfig.name}`;
+const indexDirective = indexDirectiveForUrl(Astro.url);
+const canonicalBase = Astro.site ?? new URL(Astro.url.origin);
+const canonicalPath = normalizeRedirectPath(indexDirective.canonicalPath);
+const canonicalUrl = new URL(canonicalPath, canonicalBase).href;
 const absoluteOgImage = ogImage.startsWith('http') ? ogImage : new URL(ogImage, Astro.url.origin).href;
 
-// Robots: set PUBLIC_ROBOTS=noindex,nofollow on staging, index,follow on production
-const robotsContent = import.meta.env.PUBLIC_ROBOTS || 'index,follow';
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'Organization',
-      name: siteConfig.name,
-      description: siteConfig.description,
-      foundingDate: String(FOUNDED_YEAR),
-      url: Astro.url.origin,
-      logo: new URL('/logo.webp', Astro.url.origin).href,
-      telephone: siteConfig.phone,
-      email: siteConfig.email,
-      address: { '@type': 'PostalAddress', streetAddress: siteConfig.address },
-    },
-    {
-      '@type': 'WebSite',
-      name: siteConfig.name,
-      url: Astro.url.origin,
-      description: siteConfig.description,
-    },
-  ],
-};
+// Robots: PUBLIC_ROBOTS=noindex,nofollow on staging. Faceted URLs are noindex,follow in production.
+const robotsContent = resolveRobots(import.meta.env.PUBLIC_ROBOTS, robots ?? indexDirective.robots);
+const jsonLd = siteGraphJsonLd({
+  name: siteConfig.name,
+  description: siteConfig.description,
+  foundingDate: String(FOUNDED_YEAR),
+  origin: canonicalBase.origin,
+  logo: new URL('/logo.webp', canonicalBase).href,
+  telephone: siteConfig.phone,
+  email: siteConfig.email,
+  streetAddress: siteConfig.address,
+});
 ---
 
 <!DOCTYPE html>
@@ -95,6 +99,17 @@ const jsonLd = {
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/logo-fevicon.png" />
 
+    {lcpImage && (
+      <link
+        rel="preload"
+        as="image"
+        href={lcpImage.src}
+        imagesrcset={lcpImage.srcset}
+        imagesizes={lcpImage.sizes}
+        type={lcpImage.type}
+        fetchpriority="high"
+      />
+    )}
     {preloadImages.map((image) => (
       <link
         rel="preload"
