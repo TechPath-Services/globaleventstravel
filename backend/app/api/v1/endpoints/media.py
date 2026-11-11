@@ -119,12 +119,19 @@ async def upload_media(
             is_duplicate=True,
         )
     
-    # Generate unique filename
+    # Readable name (slug + timestamp). Upload adds a suffix if that blob exists.
     filename = StorageBackend.generate_filename(original_filename, content_hash)
-    
+    mime_type = get_mime_type(ext)
+
     # Upload to storage backend
-    storage_path = await storage.upload(content, filename, folder)
+    storage_path = await storage.upload(
+        content,
+        filename,
+        folder,
+        content_type=mime_type,
+    )
     url = storage.get_url(storage_path)
+    filename = os.path.basename(storage_path)
     
     # Parse tags
     tag_list = None
@@ -138,7 +145,7 @@ async def upload_media(
         original_filename=original_filename,
         url=url,
         size=file_size,
-        mime_type=get_mime_type(ext),
+        mime_type=mime_type,
         folder=folder,
         tags=tag_list,
         storage_type=settings.STORAGE_TYPE,
