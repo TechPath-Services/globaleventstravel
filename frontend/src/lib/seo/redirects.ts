@@ -1,9 +1,41 @@
 /**
- * Permanent redirects for legacy WordPress URLs, trailing slashes, and
- * known short trek aliases. Sources are paths that should not be indexed.
- * Live blog posts are never sources: deal-post consolidation is an editorial
- * decision and is intentionally not done here.
+ * Permanent redirects for legacy WordPress URLs, trailing slashes, short trek
+ * aliases, and thin Kedarkantha deal posts. Those posts still exist in the
+ * database; the redirect map wins over the blog route, and the same slugs are
+ * dropped from the sitemap, blog listings, and related-guide blocks.
  */
+
+/**
+ * Published deal posts that 301 to the Kedarkantha trek.
+ * Code list on purpose: do not unpublish or delete the rows.
+ */
+export const REDIRECTED_BLOG_SLUGS = [
+  'unbelievable-kedarkantha-trek-deals-you-cant-resist',
+  'book-your-ultimate-winter-escape-kedarkantha-trek-discounts',
+  'ready-for-adventure-kedarkantha-trek-packages-on-sale-now',
+  'score-big-savings-on-kedarkantha-trek-gear-today',
+  'last-minute-kedarkantha-booking-tips-tricks',
+  'kedarkantha-trek-made-affordable-best-budget-options',
+  'discover-hidden-discounts-on-kedarkantha-trek-tours',
+  'exclusive-offers-on-guided-kedarkantha-expeditions',
+  'secure-your-spot-highest-rated-kedarkantha-trek-packages',
+  'book-kedarkantha-trek-now-and-receive-surprise-perks',
+  'ultimate-kedarkantha-trek-bundle-deals-just-for-you',
+  'kedarkantha-trekking-essentials-buy-now-save-big',
+] as const;
+
+const REDIRECTED_BLOG_SLUG_SET = new Set<string>(REDIRECTED_BLOG_SLUGS);
+
+export const KEDARKANTHA_DEAL_REDIRECT_TARGET = '/treks/kedarkantha';
+
+export function isRedirectedBlogSlug(slug: string | null | undefined): boolean {
+  const key = (slug || '').trim().toLowerCase();
+  return key.length > 0 && REDIRECTED_BLOG_SLUG_SET.has(key);
+}
+
+const KEDARKANTHA_DEAL_REDIRECTS: Record<string, string> = Object.fromEntries(
+  REDIRECTED_BLOG_SLUGS.map((slug) => [`/blog/${slug}`, KEDARKANTHA_DEAL_REDIRECT_TARGET]),
+);
 
 /** Short or mistyped trek paths -> the published slug. */
 export const TREK_ALIAS_REDIRECTS: Record<string, string> = {
@@ -14,11 +46,12 @@ export const TREK_ALIAS_REDIRECTS: Record<string, string> = {
 };
 
 /**
- * Exact legacy paths (lowercase, no trailing slash).
- * Blog sources here are old WordPress slugs that 404; they are not live posts.
+ * Exact paths (lowercase, no trailing slash).
+ * Includes legacy WordPress URLs and thin deal posts that are still published.
  */
 export const LEGACY_EXACT_REDIRECTS: Record<string, string> = {
   ...TREK_ALIAS_REDIRECTS,
+  ...KEDARKANTHA_DEAL_REDIRECTS,
   '/guides': '/blog',
   '/wp-content/uploads/2024/10/kedarkantha-get.pdf': '/treks/kedarkantha',
   '/tag/kheerganga-lodging-tips':

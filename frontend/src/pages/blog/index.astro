@@ -2,6 +2,7 @@
 import MainLayout from '@/layouts/MainLayout.astro';
 import BlogCard from '@/components/blog/BlogCard.astro';
 import { blogApi } from '@/lib/api';
+import { isRedirectedBlogSlug } from '@/lib/seo/redirects';
 import type { BlogPost, BlogCategory, BlogTag } from '@/lib/types';
 
 export const prerender = false;
@@ -39,8 +40,8 @@ try {
     blogApi.getTags(),
   ]);
 
-  featuredPosts = featuredRes || [];
-  posts = postsRes.items || [];
+  featuredPosts = (featuredRes || []).filter((post) => !isRedirectedBlogSlug(post.slug));
+  posts = (postsRes.items || []).filter((post) => !isRedirectedBlogSlug(post.slug));
   total = postsRes.total || 0;
   categories = catsRes || [];
   tags = (tagsRes || []).filter((t: BlogTag) => (t.post_count || 0) > 0);

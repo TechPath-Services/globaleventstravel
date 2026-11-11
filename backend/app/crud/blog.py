@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from app.core.redirected_blog import REDIRECTED_BLOG_SLUGS
 from app.crud.base import CRUDBase
 from app.db.models.blog import BlogPost, BlogAuthor, BlogCategory, BlogTag, blog_post_tags
 from app.models.blog import (
@@ -13,6 +14,13 @@ from app.models.blog import (
     BlogCategoryCreate, BlogCategoryUpdate,
     BlogTagCreate, BlogTagUpdate
 )
+
+
+def _without_redirected(query: Any, hide: bool) -> Any:
+    """Drop thin deal posts that the public site permanently redirects."""
+    if not hide:
+        return query
+    return query.filter(BlogPost.slug.notin_(REDIRECTED_BLOG_SLUGS))
 
 
 def _status_value(status: Any) -> Optional[str]:
@@ -158,7 +166,8 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
         category_id: Optional[int] = None,
         featured: Optional[bool] = None,
         status: Optional[str] = None,
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        hide_redirected: bool = False,
     ) -> List[BlogPost]:
         """Get blog posts with author."""
         query = db.query(BlogPost).options(
@@ -181,7 +190,8 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
                 BlogPost.title.ilike(f"%{search}%") |
                 BlogPost.content.ilike(f"%{search}%")
             )
-        
+        query = _without_redirected(query, hide_redirected)
+
         return query.order_by(BlogPost.created_at.desc()).offset(skip).limit(limit).all()
     
     def get_count(
@@ -207,7 +217,8 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
                     BlogPost.title.ilike(f"%{s}%") |
                     BlogPost.content.ilike(f"%{s}%")
                 )
-        
+            query = _without_redirected(query, bool(filters.get("hide_redirected")))
+
         return query.scalar() or 0
     
     def get_by_category(
@@ -215,10 +226,11 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
         db: Session, 
         category: str,
         skip: int = 0,
-        limit: int = 100
+        limit: int = 100,
+        hide_redirected: bool = True,
     ) -> List[BlogPost]:
         """Get blog posts by category slug."""
-        return db.query(BlogPost).options(
+        query = db.query(BlogPost).options(
             joinedload(BlogPost.author),
             joinedload(BlogPost.category_rel),
             joinedload(BlogPost.tags_rel)
@@ -226,7 +238,14 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
             BlogCategory, BlogPost.category_id == BlogCategory.id
         ).filter(
             BlogCategory.slug == category
-        ).order_by(BlogPost.created_at.desc()).offset(skip).limit(limit).all()
+        )
+        return (
+            _without_redirected(query, hide_redirected)
+            .order_by(BlogPost.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
     
     def get_by_tag(
         self, 
@@ -249,31 +268,39 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
     def get_recent(
         self, 
         db: Session,
-        limit: int = 5
+        limit: int = 5,
+        hide_redirected: bool = True,
     ) -> List[BlogPost]:
         """Get most recent published blog posts."""
-        return db.query(BlogPost).options(
+        query = db.query(BlogPost).options(
             joinedload(BlogPost.author),
             joinedload(BlogPost.category_rel),
             joinedload(BlogPost.tags_rel)
         ).filter(
             BlogPost.status == "published"
-        ).order_by(BlogPost.created_at.desc()).limit(limit).all()
+        )
+        return (
+            _without_redirected(query, hide_redirected)
+            .order_by(BlogPost.created_at.desc())
+            .limit(limit)
+            .all()
+        )
     
     def get_related(
         self,
         db: Session,
         *,
         current_slug: str,
-        limit: int = 3
+        limit: int = 3,
+        hide_redirected: bool = True,
     ) -> List[BlogPost]:
         """Get related blog posts based on category and tags."""
         current = self.get_by_slug_with_author(db, current_slug)
         if not current:
             return []
-        
+
         # Get posts with same category
-        return db.query(BlogPost).options(
+        query = db.query(BlogPost).options(
             joinedload(BlogPost.author),
             joinedload(BlogPost.category_rel),
             joinedload(BlogPost.tags_rel)
@@ -282,7 +309,13 @@ class CRUDBlogPost(CRUDBase[BlogPost, BlogPostCreate, BlogPostUpdate]):
             BlogPost.status == "published",
             (BlogPost.category == current.category) |
             (BlogPost.category_id == current.category_id)
-        ).order_by(BlogPost.created_at.desc()).limit(limit).all()
+        )
+        return (
+            _without_redirected(query, hide_redirected)
+            .order_by(BlogPost.created_at.desc())
+            .limit(limit)
+            .all()
+        )
     
     def create_with_tags(
         self,
