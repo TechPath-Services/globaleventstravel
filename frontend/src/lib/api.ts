@@ -368,20 +368,21 @@ export const blogApi = {
     if (featured !== undefined) params.append('featured', featured.toString());
     if (search) params.append('search', search);
     if (status) params.append('status', status);
+    params.append('hide_redirected', 'true');
     
     return api.get<PaginatedResponse<BlogPost>>(`/blog/posts?${params}`);
   },
   
   async getFeaturedPosts(limit = 4): Promise<BlogPost[]> {
-    return api.get<BlogPost[]>(`/blog/posts/featured?limit=${limit}`);
+    return api.get<BlogPost[]>(`/blog/posts/featured?limit=${limit}&hide_redirected=true`);
   },
   
   async getRecentPosts(limit = 5): Promise<BlogPost[]> {
-    return api.get<BlogPost[]>(`/blog/posts/recent?limit=${limit}`);
+    return api.get<BlogPost[]>(`/blog/posts/recent?limit=${limit}&hide_redirected=true`);
   },
   
   async getPostsByCategory(category: string, limit = 10): Promise<BlogPost[]> {
-    return api.get<BlogPost[]>(`/blog/posts/category/${category}?limit=${limit}`);
+    return api.get<BlogPost[]>(`/blog/posts/category/${category}?limit=${limit}&hide_redirected=true`);
   },
   
   async getPostBySlug(slug: string): Promise<BlogPost> {
@@ -389,7 +390,7 @@ export const blogApi = {
   },
   
   async getRelatedPosts(slug: string, limit = 3): Promise<BlogPost[]> {
-    return api.get<BlogPost[]>(`/blog/posts/${slug}/related?limit=${limit}`);
+    return api.get<BlogPost[]>(`/blog/posts/${slug}/related?limit=${limit}&hide_redirected=true`);
   },
 
   async getCategories(activeOnly = true): Promise<BlogCategory[]> {

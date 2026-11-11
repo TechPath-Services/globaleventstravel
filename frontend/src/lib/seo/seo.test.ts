@@ -7,7 +7,9 @@ import { indexDirectiveForUrl, resolveRobots } from './indexing';
 import { findMentionedTreks, selectRelatedGuides, trekSearchQuery } from './mentions';
 import { notFoundResponse } from './not-found';
 import {
+  KEDARKANTHA_DEAL_REDIRECT_TARGET,
   LEGACY_EXACT_REDIRECTS,
+  REDIRECTED_BLOG_SLUGS,
   TREK_ALIAS_REDIRECTS,
   TREK_ALIAS_TARGET_SLUGS,
   productTrekRedirect,
@@ -98,10 +100,16 @@ describe('redirects', () => {
     expect(resolveRedirect('/product/dayara-bugyal-trek/')).toBe('/product/dayara-bugyal-trek');
   });
 
-  it('does not redirect live blog posts, including thin Kedarkantha deal posts', () => {
+  it('301s thin Kedarkantha deal posts to the trek even when the posts still exist', () => {
+    expect(REDIRECTED_BLOG_SLUGS).toEqual(THIN_KEDARKANTHA_DEAL_SLUGS);
     for (const slug of THIN_KEDARKANTHA_DEAL_SLUGS) {
-      expect(resolveRedirect(`/blog/${slug}`)).toBeNull();
-      expect(LEGACY_EXACT_REDIRECTS[`/blog/${slug}`]).toBeUndefined();
+      expect(resolveRedirect(`/blog/${slug}`)).toBe(KEDARKANTHA_DEAL_REDIRECT_TARGET);
+      expect(resolveRedirect(`/blog/${slug}/`)).toBe(KEDARKANTHA_DEAL_REDIRECT_TARGET);
+      expect(resolveRedirect(`/BLOG/${slug.toUpperCase()}`)).toBe(KEDARKANTHA_DEAL_REDIRECT_TARGET);
+      expect(resolveRedirect(`/blog/${slug}`, '?utm_source=old')).toBe(
+        `${KEDARKANTHA_DEAL_REDIRECT_TARGET}?utm_source=old`,
+      );
+      expect(LEGACY_EXACT_REDIRECTS[`/blog/${slug}`]).toBe(KEDARKANTHA_DEAL_REDIRECT_TARGET);
     }
     expect(resolveRedirect('/blog/kedarkantha-trek-cost-202627-full-line-by-line-breakdown')).toBeNull();
     expect(resolveRedirect('/blog/best-time-to-trek-kedarkantha')).toBeNull();
@@ -323,7 +331,16 @@ describe('internal links', () => {
     expect(selectRelatedGuides([
       { title: 'Best time to trek Kedarkantha', slug: 'best-time-to-trek-kedarkantha', excerpt: 'Winter.' },
       { title: 'Best time to trek Kedarkantha', slug: 'best-time-to-trek-kedarkantha', excerpt: 'dup' },
-    ])).toHaveLength(1);
+      {
+        title: 'Unbelievable deals',
+        slug: 'unbelievable-kedarkantha-trek-deals-you-cant-resist',
+        excerpt: 'Sale.',
+      },
+      { title: 'Packing list', slug: 'kedarkantha-packing-list', excerpt: 'Layers.' },
+    ]).map((post) => post.slug)).toEqual([
+      'best-time-to-trek-kedarkantha',
+      'kedarkantha-packing-list',
+    ]);
   });
 });
 

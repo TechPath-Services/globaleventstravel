@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { REDIRECTED_BLOG_SLUGS } from './seo/redirects';
 import {
   buildSitemapEntries,
   collectPages,
@@ -60,6 +61,24 @@ describe('sitemap', () => {
       entries.find((entry) => entry.path === '/tools/winter-trek-quiz/result/kedarkantha')?.lastmod,
     ).toBe('2026-03-02');
     expect(entries.find((entry) => entry.path === '/treks')?.lastmod).toBeUndefined();
+  });
+
+  it('omits thin Kedarkantha deal posts that permanently redirect', () => {
+    const withDeals = buildSitemapEntries({
+      ...source,
+      posts: [
+        ...source.posts,
+        ...REDIRECTED_BLOG_SLUGS.map((slug) => ({ slug, updated_at: '2026-01-01T00:00:00Z' })),
+      ],
+    });
+    const dealPaths = withDeals.map((entry) => entry.path);
+    for (const slug of REDIRECTED_BLOG_SLUGS) {
+      expect(dealPaths).not.toContain(`/blog/${slug}`);
+    }
+    expect(dealPaths).toContain('/blog/winter-packing-list');
+    expect(dealPaths).toContain('/treks/kedarkantha');
+    const xmlWithDeals = renderSitemap('https://globaleventstravels.com', withDeals);
+    expect(xmlWithDeals).not.toContain('unbelievable-kedarkantha-trek-deals-you-cant-resist');
   });
 
   it('excludes admin, API, embeds, and paginated URLs', () => {

@@ -6,6 +6,7 @@ import { renderBlogContent } from '@/lib/blog-markdown';
 import { formatInr } from '@/lib/marketing/format';
 import { findMentionedTreks } from '@/lib/seo/mentions';
 import { notFoundResponse } from '@/lib/seo/not-found';
+import { isRedirectedBlogSlug } from '@/lib/seo/redirects';
 import '@/styles/blog-article.css';
 
 const { siteConfig } = await getSiteSettings();
@@ -20,7 +21,9 @@ let relatedPosts: any[] = [];
 
 try {
   post = await blogApi.getPostBySlug(slug as string);
-  relatedPosts = await blogApi.getRelatedPosts(slug as string, 3);
+  relatedPosts = (await blogApi.getRelatedPosts(slug as string, 3)).filter(
+    (related) => !isRedirectedBlogSlug(related?.slug),
+  );
 } catch (error) {
   console.error('Error fetching blog post:', error);
   return notFoundResponse({

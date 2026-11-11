@@ -1,3 +1,5 @@
+import { isRedirectedBlogSlug } from './redirects';
+
 const STOP_WORDS = new Set([
   'trek',
   'treks',
@@ -111,7 +113,7 @@ export function selectRelatedGuides<T extends GuideRef>(posts: T[], limit = 4): 
   for (const post of posts) {
     const slug = (post.slug || '').trim();
     const title = (post.title || '').trim();
-    if (!slug || !title || seen.has(slug)) continue;
+    if (!slug || !title || seen.has(slug) || isRedirectedBlogSlug(slug)) continue;
     seen.add(slug);
     guides.push(post);
     if (guides.length >= limit) break;

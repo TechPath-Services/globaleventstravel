@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { resolveRedirect } from '@/lib/seo/redirects';
 import type { PaginatedResponse } from '@/lib/types';
 
 /** Indexable static routes. Listing page 1 only — never ?page= or filtered variants. */
@@ -94,6 +95,8 @@ export function buildSitemapEntries(source: SitemapSource): SitemapEntry[] {
   const add = (entry: SitemapEntry | null) => {
     if (!entry || !isPublicSitemapPath(entry.path)) return;
     const path = normalizePath(entry.path);
+    // A URL that 301s (including live thin deal posts) must not be submitted.
+    if (resolveRedirect(path)) return;
     const existing = byPath.get(path);
     if (!existing) {
       byPath.set(path, { path, lastmod: entry.lastmod });
@@ -200,7 +203,11 @@ export async function loadSitemapEntries(): Promise<SitemapEntry[]> {
   const [treks, expeditions, posts, cities, quizTreks] = await Promise.all([
     safe('treks', () => fetchPaginated<SitemapRecord>('/treks?status=published'), []),
     safe('expeditions', () => fetchPaginated<SitemapRecord>('/expeditions?status=published'), []),
-    safe('blog posts', () => fetchPaginated<SitemapRecord>('/blog/posts?status=published'), []),
+    safe(
+      'blog posts',
+      () => fetchPaginated<SitemapRecord>('/blog/posts?status=published&hide_redirected=true'),
+      [],
+    ),
     safe('departure cities', () => api.get<SitemapRecord[]>('/departure-cities'), []),
     safe('quiz treks', () => api.get<SitemapRecord[]>('/marketing/treks?scope=quiz'), []),
   ]);
