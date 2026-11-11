@@ -258,6 +258,7 @@ def list_blog_posts(
     featured: Optional[bool] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    hide_redirected: bool = Query(False),
     db: Session = Depends(get_db),
 ):
     """Get list of blog posts with optional filters."""
@@ -273,7 +274,8 @@ def list_blog_posts(
         category_id=category_id,
         featured=featured,
         status=status,
-        search=search
+        search=search,
+        hide_redirected=hide_redirected,
     )
     
     # Count total
@@ -288,6 +290,8 @@ def list_blog_posts(
         filters["status"] = status
     if search:
         filters["search"] = search
+    if hide_redirected:
+        filters["hide_redirected"] = True
     total = blog_crud.get_count(db, filters=filters)
     
     return PaginatedResponse(
@@ -304,7 +308,9 @@ def list_featured_posts(
     db: Session = Depends(get_db),
 ):
     """Get featured blog posts."""
-    posts = blog_crud.get_multi_with_author(db, featured=True, status="published", limit=limit)
+    posts = blog_crud.get_multi_with_author(
+        db, featured=True, status="published", limit=limit, hide_redirected=True
+    )
     return [BlogPostListResponse.from_orm_model(p) for p in posts]
 
 

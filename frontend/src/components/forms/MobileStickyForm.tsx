@@ -312,7 +312,7 @@ export default function MobileStickyForm({
                           id="mobile-whatsapp"
                           value={formData.whatsapp}
                           onChange={(e) => handleWhatsAppChange(e.target.value)}
-                          placeholder="96000 36667"
+                          placeholder="63833 13359"
                           className={`w-full pl-14 pr-4 py-3 border rounded-xl text-gray-900 placeholder-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/20 ${
                             errors.whatsapp ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-orange-500'
                           }`}

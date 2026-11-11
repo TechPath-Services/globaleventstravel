@@ -3,7 +3,7 @@
 // ============================================
 
 export const WHATSAPP = {
-  number: '919600036667',
+  number: '916383313359',
   prefilledMessage: "Hi, I'm interested in trekking. Can you send me itinerary options?",
 };
 
@@ -13,7 +13,7 @@ export const SITE_CONFIG = {
   description: 'Discover amazing treks and expeditions in the Himalayas with experienced guides and unforgettable experiences.',
   url: 'https://globaleventstravels.com',
   email: 'info@globaleventstravels.com',
-  phone: '+91 96000 36667',
+  phone: '+91 63833 13359',
   address: 'Manali, Himachal Pradesh, India',
   widgetScript: '',
 };
