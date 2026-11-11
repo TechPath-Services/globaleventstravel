@@ -9,7 +9,7 @@ const cities = await loadCities();
 const structuredData = graph(
   breadcrumbJsonLd(Astro.url.origin, [
     { name: 'Home', path: '/' },
-    { name: 'Treks from your city', path: '/treks-from/' },
+    { name: 'Treks from your city', path: '/treks-from' },
   ]),
   cities.length > 0 && {
     '@type': 'ItemList',
@@ -17,7 +17,7 @@ const structuredData = graph(
       '@type': 'ListItem',
       position: i + 1,
       name: `Treks from ${c.name}`,
-      url: new URL(`/treks-from/${c.slug}/`, Astro.url.origin).href,
+      url: new URL(`/treks-from/${c.slug}`, Astro.url.origin).href,
     })),
   },
 );
@@ -42,7 +42,7 @@ const structuredData = graph(
       {cities.length > 0 ? (
         <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {cities.map((c) => (
-            <a href={`/treks-from/${c.slug}/`} class="group block overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-shadow hover:shadow-lg">
+            <a href={`/treks-from/${c.slug}`} class="group block overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-shadow hover:shadow-lg">
               {c.hero_image && <img src={c.hero_image} alt="" class="aspect-[16/9] w-full object-cover" loading="lazy" />}
               <div class="p-6">
                 <h2 class="text-2xl font-bold group-hover:text-primary-600">Treks from {c.name}</h2>
@@ -59,7 +59,7 @@ const structuredData = graph(
         <div class="rounded-xl bg-white p-8 text-center">
           <p class="text-lg font-semibold">We're verifying routes city by city.</p>
           <p class="mt-2 text-neutral-600">Meanwhile, ask us on WhatsApp and we'll share the best way to reach your trek.</p>
-          <a href="/tools/winter-trek-quiz/" class="btn-primary mt-5">Find your winter trek</a>
+          <a href="/tools/winter-trek-quiz" class="btn-primary mt-5">Find your winter trek</a>
         </div>
       )}
     </div>

@@ -11,6 +11,8 @@ import CTA from '@/components/sections/CTA.astro';
 
 import { treksApi, expeditionsApi, api } from '@/lib/api';
 import type { Trek, Expedition } from '@/lib/types';
+import { heroImageAttrs } from '@/lib/seo/images';
+import { resolveHomeHeroImage } from '@/lib/seo/home-hero';
 
 // Enable SSR for dynamic data fetching
 export const prerender = false;
@@ -52,6 +54,9 @@ try {
   // Section may not exist yet; ignore
 }
 
+const homeHeroSrc = await resolveHomeHeroImage();
+const homeHero = heroImageAttrs(homeHeroSrc, { width: 1920, height: 1080 });
+
 // Fetch expeditions section content
 let expeditionsContent: { title?: string; subtitle?: string } = {};
 try {
@@ -63,10 +68,14 @@ try {
 }
 ---
 
-<MainLayout title="Home" description="Discover amazing treks and expeditions in the Himalayas with Global Events Travels. Expert guides, safety first, unforgettable experiences.">
+<MainLayout
+  title="Home"
+  description="Discover amazing treks and expeditions in the Himalayas with Global Events Travels. Expert guides, safety first, unforgettable experiences."
+  lcpImage={homeHero}
+>
   
   <!-- Hero Section -->
-  <HeroHome />
+  <HeroHome backgroundImage={homeHeroSrc} />
 
   <!-- Featured Treks -->
   <FeaturedTreks treks={featuredTreks} urgencyDefaults={featuredDefaults} />

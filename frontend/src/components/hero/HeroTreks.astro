@@ -2,6 +2,7 @@
 import FeaturedTrekSlider from '@/components/hero/FeaturedTrekSlider';
 import { api, treksApi } from '@/lib/api';
 import { DIFFICULTY_LABELS } from '@/lib/constants';
+import { TREKS_LISTING_HERO } from '@/lib/treks-hero';
 import type { Trek } from '@/lib/types';
 
 interface Props {
@@ -18,7 +19,6 @@ interface PageSection {
   subtitle?: string | null;
   badge_text?: string | null;
   body_html?: string | null;
-  image_url?: string | null;
   cta_label?: string | null;
   cta_url?: string | null;
 }
@@ -69,7 +69,6 @@ let subtitle =
   'From beginner-friendly trails to challenging high-altitude adventures, discover your perfect trek in the Himalayas.';
 let highlightWord = 'Himalayan Trek';
 let annotation = 'Breathtaking Views Await';
-let backgroundImage = '/images/home/hero-bg.webp';
 let primaryCta = { label: 'Explore All Treks', url: '#popular-treks' };
 let secondaryCta = {
   label: 'Watch Our Story',
@@ -117,7 +116,8 @@ try {
     if (heroSection.badge_text) badgeText = heroSection.badge_text;
     if (heroSection.title) title = heroSection.title;
     if (heroSection.subtitle) subtitle = heroSection.subtitle;
-    if (heroSection.image_url) backgroundImage = heroSection.image_url;
+    // Background stays the static dark hero. A Site Content image_url (often the
+    // bright daylight snow photo) would drop white title/nav contrast.
     const meta = parseJson<{ highlight_word?: string; annotation?: string }>(heroSection.body_html);
     if (meta?.highlight_word) highlightWord = meta.highlight_word;
     if (meta?.annotation) annotation = meta.annotation;
@@ -167,24 +167,29 @@ const titleParts =
 const secondaryIsExternal = secondaryCta.url.startsWith('http');
 ---
 
-<section class="hero-treks relative overflow-hidden bg-secondary-900">
-  <!-- Full-bleed background -->
+<section class="hero-treks relative overflow-hidden bg-[#061018]">
+  <!-- Full-bleed background. Fixed dimensions + object-cover so the photo cannot shift layout. -->
   <div class="absolute inset-0">
-    <img
-      src={backgroundImage}
-      alt="Himalayan mountain landscape"
-      class="hero-treks__bg w-full h-full object-cover"
-      width="1920"
-      height="1080"
-      loading="eager"
-      fetchpriority="high"
-      decoding="async"
-    />
-    <div class="absolute inset-0 bg-gradient-to-r from-secondary-950/90 via-secondary-900/75 to-secondary-900/45"></div>
-    <div class="absolute inset-0 bg-gradient-to-t from-secondary-950 via-secondary-900/40 to-transparent"></div>
+    <picture class="block h-full w-full">
+      <source media="(max-width: 799px)" type="image/avif" srcset={TREKS_LISTING_HERO.mobileAvif} />
+      <source media="(min-width: 800px)" type="image/avif" srcset={TREKS_LISTING_HERO.desktopAvif} />
+      <source media="(max-width: 799px)" type="image/webp" srcset={TREKS_LISTING_HERO.mobileWebp} />
+      <source media="(min-width: 800px)" type="image/webp" srcset={TREKS_LISTING_HERO.desktopWebp} />
+      <img
+        src={TREKS_LISTING_HERO.desktopWebp}
+        alt=""
+        class="hero-treks__bg h-full w-full object-cover object-center"
+        width={TREKS_LISTING_HERO.width}
+        height={TREKS_LISTING_HERO.height}
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      />
+    </picture>
+    <div class="hero-treks__scrim absolute inset-0" aria-hidden="true"></div>
   </div>
 
-  <div class="relative z-10 container-custom pt-16 sm:pt-20 lg:pt-24 pb-8 sm:pb-10">
+  <div class="relative z-10 container-custom pt-24 sm:pt-28 md:pt-32 lg:pt-36 pb-8 sm:pb-10">
     <div class="grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
       <!-- Copy + CTAs -->
       <div class="lg:col-span-7 text-center lg:text-left text-white">
@@ -204,7 +209,7 @@ const secondaryIsExternal = secondaryCta.url.startsWith('http');
           )}
         </h1>
 
-        <p class="hero-treks__reveal hero-treks__reveal--3 text-base sm:text-lg text-white/85 max-w-xl mx-auto lg:mx-0 mb-7 leading-relaxed">
+        <p class="hero-treks__reveal hero-treks__reveal--3 text-base sm:text-lg text-white max-w-xl mx-auto lg:mx-0 mb-7 leading-relaxed [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
           {subtitle}
         </p>
 
@@ -370,6 +375,17 @@ const secondaryIsExternal = secondaryCta.url.startsWith('http');
 </section>
 
 <style>
+  /* At least 58% #030810 over the brightest snow keeps white body text
+     and the gold active nav link above WCAG AA (4.5:1). The top is slightly
+     darker so the transparent navbar stays readable. */
+  .hero-treks__scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(3, 8, 16, 0.66) 0%,
+      rgba(3, 8, 16, 0.58) 18%,
+      rgba(3, 8, 16, 0.58) 100%
+    );
+  }
 
   .hero-treks__bg {
     animation: hero-treks-kenburns 28s ease-out forwards;

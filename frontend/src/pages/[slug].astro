@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import { blogApi } from '@/lib/api';
+import { notFoundResponse } from '@/lib/seo/not-found';
 
 const { slug } = Astro.params;
 
@@ -15,5 +16,5 @@ if (slug) {
   }
 }
 
-return new Response(null, { status: 404 });
+return notFoundResponse();
 ---

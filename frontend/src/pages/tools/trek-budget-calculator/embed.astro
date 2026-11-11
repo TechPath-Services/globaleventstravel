@@ -12,7 +12,7 @@ const [settings, treks, citySummaries] = await Promise.all([loadSettings(), load
 const cityDetails = await loadCityDetails(citySummaries);
 const calculator = settings?.calculator ?? DEFAULT_SETTINGS_FALLBACK.calculator;
 const student = settings?.student_discount ?? DEFAULT_SETTINGS_FALLBACK.student_discount;
-const pageUrl = new URL('/tools/trek-budget-calculator/', Astro.url.origin).href;
+const pageUrl = new URL('/tools/trek-budget-calculator', Astro.url.origin).href;
 ---
 
 <EmbedLayout title="Trek budget calculator">
