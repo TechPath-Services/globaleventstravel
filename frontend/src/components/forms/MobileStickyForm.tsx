@@ -1,7 +1,14 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { leadsApi, type LeadData } from '@/lib/api';
+import { leadsApi, treksApi, type LeadData } from '@/lib/api';
 import { useTrekOptions } from '@/lib/useTrekOptions';
 import { LEAD_FORM_CONFIG } from '@/lib/constants';
+import {
+  deliverItineraryPdf,
+  releaseDownloadTab,
+  reserveDownloadTab,
+  type ItineraryDelivery,
+} from '@/lib/itinerary-download';
+import ItineraryDownloadButton from '@/components/forms/ItineraryDownloadButton';
 
 interface FormData {
   name: string;
@@ -22,6 +29,8 @@ interface MobileStickyFormProps {
   /** Preselect the trek when the form is opened from a trek-detail page. */
   trekSlug?: string;
   trekName?: string;
+  /** PDF for the preselected trek. Other choices are looked up after the lead saves. */
+  itineraryPdfUrl?: string | null;
   formTitle?: string;
   formSubtitle?: string;
   ctaText?: string;
@@ -33,6 +42,7 @@ export default function MobileStickyForm({
   variant = 'minimal',
   trekSlug,
   trekName,
+  itineraryPdfUrl,
   formTitle = LEAD_FORM_CONFIG.formTitle,
   formSubtitle = LEAD_FORM_CONFIG.formSubtitle,
   ctaText = LEAD_FORM_CONFIG.ctaText,
@@ -53,6 +63,7 @@ export default function MobileStickyForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [itineraryDelivery, setItineraryDelivery] = useState<ItineraryDelivery | null>(null);
 
   // Hide sticky bar when scrolled to top (hero is visible)
   useEffect(() => {
@@ -131,6 +142,11 @@ export default function MobileStickyForm({
     
     if (!validateForm()) return;
 
+    // On a trek page the PDF may belong to the preselected trek or to a
+    // different choice looked up after the lead is saved. Reserve the tab now.
+    const mayDownload = Boolean(trekSlug && formData.trek && formData.trek !== 'custom');
+    const reserved = mayDownload ? reserveDownloadTab() : null;
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -149,8 +165,38 @@ export default function MobileStickyForm({
       };
       
       await leadsApi.create(leadData);
+
+      let pdfUrl = '';
+      let pdfName = trekName || trekOption?.label || '';
+      if (trekSlug && formData.trek === trekSlug) {
+        pdfUrl = itineraryPdfUrl || '';
+      } else if (trekSlug && formData.trek && formData.trek !== 'custom') {
+        try {
+          const trek = await treksApi.getBySlug(formData.trek);
+          pdfUrl = trek.itinerary_pdf_url || '';
+          pdfName = trek.name || pdfName;
+        } catch (lookupError) {
+          console.error('Could not load itinerary PDF for selected trek:', lookupError);
+        }
+      }
+
+      try {
+        const delivery = await deliverItineraryPdf({
+          url: pdfUrl,
+          name: pdfName,
+          kind: 'trek',
+          trekSlug: formData.trek,
+          source: 'mobile_sticky',
+          reserved,
+        });
+        setItineraryDelivery(delivery.method === 'skipped' ? null : delivery);
+      } catch (downloadError) {
+        releaseDownloadTab(reserved);
+        console.error('Itinerary download failed:', downloadError);
+      }
       setIsSuccess(true);
     } catch (error) {
+      releaseDownloadTab(reserved);
       console.error('Error submitting lead:', error);
       setSubmitError(error instanceof Error ? error.message : 'Failed to submit. Please try again.');
     } finally {
@@ -174,8 +220,9 @@ export default function MobileStickyForm({
     setIsModalOpen(false);
     if (isSuccess) {
       // Reset form after closing success state
-      setFormData({ name: '', email: '', whatsapp: '', trek: '' });
+      setFormData({ name: '', email: '', whatsapp: '', trek: trekSlug || '' });
       setIsSuccess(false);
+      setItineraryDelivery(null);
     }
   };
 
@@ -247,9 +294,16 @@ export default function MobileStickyForm({
                     </svg>
                     <span className="font-medium text-lg">Check your WhatsApp</span>
                   </div>
+                  {itineraryDelivery && (
+                    <ItineraryDownloadButton
+                      delivery={itineraryDelivery}
+                      trekSlug={formData.trek || trekSlug || ''}
+                      source="mobile_sticky"
+                    />
+                  )}
                   <button
                     onClick={closeModal}
-                    className="px-8 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                    className="mt-4 px-8 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
                   >
                     Done
                   </button>
