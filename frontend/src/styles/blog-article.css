@@ -28,6 +28,7 @@
   max-width: 76rem;
   margin: 0 auto;
   padding: 1.75rem 1rem 4rem;
+  min-width: 0;
 }
 
 .blog-article__rail {
@@ -40,6 +41,8 @@
   border-radius: 1.5rem;
   box-shadow: 0 16px 50px rgba(20, 35, 77, 0.05);
   padding: 1.25rem 1.1rem 2rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .blog-share-mobile {
@@ -87,10 +90,22 @@
 
 .article-prose {
   max-width: none;
+  min-width: 0;
   font-size: 1.0625rem;
   line-height: 1.8;
   color: #2c2c2c;
   overflow-wrap: break-word;
+}
+
+.article-prose iframe,
+.article-prose embed,
+.article-prose video {
+  max-width: 100%;
+}
+
+.article-prose pre {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .article-prose > :first-child {

@@ -114,12 +114,12 @@ const expeditionJsonLd = expeditionStructuredData(expedition, {
     <div class="container-custom">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Main Content -->
-        <div class="lg:col-span-2 space-y-8">
+        <div class="lg:col-span-2 space-y-8 min-w-0">
           <!-- Overview -->
           <div class="bg-white rounded-2xl border border-neutral-200 p-6 md:p-8">
             <h2 class="text-2xl font-bold text-secondary-600 mb-4">Overview</h2>
             <div
-              class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none"
+              class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto"
               set:html={renderContent(expedition.description).html}
             ></div>
           </div>
@@ -199,7 +199,7 @@ const expeditionJsonLd = expeditionStructuredData(expedition, {
             </div>
             <div class="space-y-4">
               {(expedition.itinerary || []).map((day) => (
-                <div class="relative pl-8 pb-6 border-l-2 border-primary-200 last:border-0 last:pb-0">
+                <div class="relative pl-8 pb-6 border-l-2 border-primary-200 last:border-0 last:pb-0 min-w-0">
                   <div class="absolute left-0 -translate-x-1/2 w-4 h-4 rounded-full bg-primary-500 border-4 border-white"></div>
                   <div class="bg-neutral-50 rounded-xl p-5">
                     <div class="flex items-center justify-between mb-2">
@@ -213,8 +213,8 @@ const expeditionJsonLd = expeditionStructuredData(expedition, {
                         {day.altitude.toLocaleString()}m
                       </span>
                     </div>
-                    <h3 class="font-semibold text-secondary-600 mb-2">{day.title}</h3>
-                    <p class="text-neutral-600 text-sm mb-3">{day.description}</p>
+                    <h3 class="font-semibold text-secondary-600 mb-2 break-words">{day.title}</h3>
+                    <p class="text-neutral-600 text-sm mb-3 break-words">{day.description}</p>
                     {day.activities && (
                       <div class="flex flex-wrap gap-2">
                         {day.activities.map((activity) => (
@@ -400,7 +400,7 @@ const expeditionJsonLd = expeditionStructuredData(expedition, {
         </div>
 
         <!-- Sidebar -->
-        <div class="lg:col-span-1">
+        <div class="lg:col-span-1 min-w-0">
           <div class="sticky top-24 space-y-6">
             <!-- Booking Card -->
             <div class="bg-white rounded-2xl border border-neutral-200 p-6 shadow-lg">
@@ -524,8 +524,8 @@ const expeditionJsonLd = expeditionStructuredData(expedition, {
   </section>
 
   <!-- Mobile Sticky CTA -->
-  <div class="fixed bottom-0 left-0 right-0 bg-royal-600 border-t border-royal-700 p-4 shadow-lg z-40 lg:hidden">
-    <div class="flex items-center justify-between">
+  <div class="fixed bottom-0 left-0 right-0 bg-royal-600 border-t border-royal-700 p-4 shadow-lg z-40 lg:hidden max-w-[100vw] min-w-0">
+    <div class="flex items-center justify-between gap-3 min-w-0">
       <div>
         <span class="text-sm text-white/80">Starting from</span>
         <div class="text-xl font-bold text-white">{formatPrice(expedition.price)}</div>

@@ -231,14 +231,14 @@ export default function MobileStickyForm({
       {/* Sticky Bottom Bar - Only visible on mobile when scrolled.
           Right padding reserves space for the CDN "Ask From Riya" badge. */}
       <div
-        className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${
+        className={`lg:hidden fixed bottom-0 left-0 right-0 z-50 max-w-[100vw] min-w-0 transition-transform duration-300 ${
           isVisible ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
         <div className="bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] py-3 pl-3 pr-[9.5rem] safe-area-bottom">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-200 flex items-center justify-center gap-1.5 text-sm sm:text-base"
+            className="w-full min-w-0 py-3.5 px-4 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-semibold rounded-xl shadow-lg shadow-orange-500/30 transition-all duration-200 flex items-center justify-center gap-1.5 text-sm sm:text-base"
           >
             <span>Get Itinerary</span>
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

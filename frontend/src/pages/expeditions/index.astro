@@ -182,13 +182,13 @@ expeditions.forEach((exp) => {
   <!-- Safety Commitment -->
   <section class="section bg-royal-50 py-16 md:py-20">
     <div class="container-custom">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center [&>*]:min-w-0">
         <div>
           <h2 class="text-3xl md:text-4xl font-bold text-secondary-600 mb-6">
             {safetySection?.title || 'Safety First'}
           </h2>
           {safetySection?.body_html ? (
-            <div class="text-neutral-600 prose prose-neutral max-w-none" set:html={safetySection.body_html}></div>
+            <div class="text-neutral-600 prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto" set:html={safetySection.body_html}></div>
           ) : (
             <p class="text-neutral-600 leading-relaxed">
               All our expeditions are led by certified mountaineers with emergency protocols, satellite communication, and insurance coverage. Previous high-altitude experience is required for most expeditions.

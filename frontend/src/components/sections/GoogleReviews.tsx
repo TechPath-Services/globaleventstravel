@@ -167,7 +167,7 @@ export default function GoogleReviews() {
         </div>
 
         {/* Sliding cards - 3 visible at a time */}
-        <div className="relative overflow-hidden px-1">
+        <div className="relative min-w-0 max-w-full overflow-hidden px-1">
           <div
             className="flex gap-6 transition-transform duration-500 ease-out will-change-transform"
             style={{

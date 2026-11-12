@@ -257,12 +257,12 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
       <div class="grid lg:grid-cols-3 gap-8">
         
         <!-- Main Content -->
-        <div class="lg:col-span-2 space-y-8">
+        <div class="lg:col-span-2 space-y-8 min-w-0">
           
           <!-- Description -->
           <div class="bg-white rounded-xl border border-neutral-200 p-6">
             <h2 class="text-2xl font-bold text-neutral-900 mb-4">About This Trek</h2>
-            <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={renderContent(trek.description).html}></div>
+            <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto" set:html={renderContent(trek.description).html}></div>
             
             <!-- Best Season -->
             <div class="mt-6">
@@ -419,14 +419,14 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                 {Object.entries(batchesByMonthAnnotated).map(([_month, monthBatches], idx) => (
                   <div class={`month-group divide-y divide-neutral-100 ${idx === 0 ? '' : 'hidden'}`} data-month-idx={idx}>
                     {monthBatches.map((batch) => (
-                      <div class={`flex items-center gap-3 py-3.5 ${batch.status === 'sold_out' ? 'opacity-60' : ''}`}>
+                      <div class={`flex items-center gap-3 py-3.5 min-w-0 ${batch.status === 'sold_out' ? 'opacity-60' : ''}`}>
                         <!-- Date -->
                         <div class="flex-1 min-w-0">
                           <div class="font-semibold text-neutral-900 text-sm leading-tight">
                             {formatBatchDate(batch.start_date)} – {formatBatchDate(batch.end_date)}
                           </div>
                           {batch.notes && (
-                            <div class="text-xs text-neutral-500 mt-0.5 truncate">{batch.notes}</div>
+                            <div class="text-xs text-neutral-500 mt-0.5 whitespace-normal break-words sm:truncate">{batch.notes}</div>
                           )}
                         </div>
 
@@ -478,7 +478,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                     {day.day}
                   </div>
                   <h3 class="text-lg font-semibold text-neutral-900 mb-2 break-words">{day.title}</h3>
-                  <div class="text-neutral-600 mb-3 prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_table]:w-full [&_pre]:overflow-x-auto" set:html={renderContent(day.description).html}></div>
+                  <div class="text-neutral-600 mb-3 prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto" set:html={renderContent(day.description).html}></div>
                   <div class="flex flex-wrap gap-4 text-sm text-neutral-500">
                     <span class="flex items-center gap-1">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -573,13 +573,13 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                 {trek.fitness_level && (
                   <div class="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
                     <h4 class="text-lg font-semibold text-neutral-900 mb-2">Fitness Level Required</h4>
-                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={renderContent(trek.fitness_level).html}></div>
+                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto" set:html={renderContent(trek.fitness_level).html}></div>
                   </div>
                 )}
                 {trek.experience_required && (
                   <div class="border border-neutral-200 rounded-lg p-4 bg-neutral-50">
                     <h4 class="text-lg font-semibold text-neutral-900 mb-2">Experience Required</h4>
-                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none" set:html={renderContent(trek.experience_required).html}></div>
+                    <div class="text-neutral-600 leading-relaxed prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto" set:html={renderContent(trek.experience_required).html}></div>
                   </div>
                 )}
               </div>
@@ -603,13 +603,13 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                       class="w-full px-5 py-4 flex items-center justify-between text-left bg-neutral-50 hover:bg-neutral-100 transition-colors faq-trigger"
                       data-index={index}
                     >
-                      <span class="font-semibold text-neutral-900">{faq.question}</span>
-                      <svg class="w-5 h-5 text-neutral-500 transition-transform duration-200 faq-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span class="font-semibold text-neutral-900 min-w-0 break-words">{faq.question}</span>
+                      <svg class="w-5 h-5 text-neutral-500 transition-transform duration-200 faq-icon shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
                     <div class="faq-content hidden">
-                      <div class="px-5 py-4 text-neutral-600 bg-white prose prose-neutral max-w-none break-words [&_img]:max-w-full" set:html={renderContent(faq.answer).html}></div>
+                      <div class="px-5 py-4 text-neutral-600 bg-white prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto" set:html={renderContent(faq.answer).html}></div>
                     </div>
                   </div>
                 ))}
@@ -626,13 +626,13 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                 </svg>
                 Trek Map of {trek.name}
               </h2>
-              <div class="aspect-video rounded-lg overflow-hidden border border-neutral-200" set:html={trek.map_embed}></div>
+              <div class="aspect-video rounded-lg overflow-hidden border border-neutral-200 min-w-0 [&_iframe]:block [&_iframe]:h-full [&_iframe]:w-full [&_iframe]:max-w-full" set:html={trek.map_embed}></div>
             </div>
           )}
         </div>
 
         <!-- Sidebar -->
-        <div class="lg:col-span-1">
+        <div class="lg:col-span-1 min-w-0">
           <div class="sticky top-24 space-y-6">
             
             <!-- Lead Capture Form -->

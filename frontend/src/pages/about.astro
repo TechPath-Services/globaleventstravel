@@ -67,7 +67,7 @@ const values = [
   <!-- Our Story Section -->
   <section class="section bg-white">
     <div class="container-custom">
-      <div class="grid lg:grid-cols-2 gap-12 items-center">
+      <div class="grid lg:grid-cols-2 gap-12 items-center [&>*]:min-w-0">
         <div>
           <span class="inline-block text-primary-500 font-semibold text-sm uppercase tracking-wider mb-4">
             {storySection?.badge_text || 'Our Story'}
@@ -77,7 +77,7 @@ const values = [
           </h2>
           <div class="space-y-4 text-neutral-600 leading-relaxed">
             {storySection?.body_html ? (
-              <div class="prose prose-neutral max-w-none" set:html={storySection.body_html}></div>
+              <div class="prose prose-neutral max-w-none break-words [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_iframe]:max-w-full [&_pre]:overflow-x-auto" set:html={storySection.body_html}></div>
             ) : (
               <>
                 <p>
