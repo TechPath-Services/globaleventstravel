@@ -19,6 +19,7 @@ import { notFoundResponse } from '@/lib/seo/not-found';
 import { selectRelatedGuides, trekSearchQuery } from '@/lib/seo/mentions';
 import { heroImageAttrs } from '@/lib/seo/images';
 import { trekDocumentTitle, trekMetaDescription, trekStructuredData } from '@/lib/seo/trek-structured-data';
+import { resolveItineraryPdfUrl } from '@/lib/itinerary-download';
 
 // Enable SSR for this page - fetch trek data dynamically at request time
 export const prerender = false;
@@ -74,6 +75,7 @@ if (!trek) {
 }
 
 const difficultyInfo = DIFFICULTY_LABELS[trek.difficulty] || DIFFICULTY_LABELS.moderate;
+const itineraryPdfUrl = resolveItineraryPdfUrl(trek.itinerary_pdf_url);
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('en-IN', {
@@ -640,6 +642,7 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
                 trekName={trek.name}
                 trekSlug={trek.slug}
                 trekPrice={formatPrice(startingPrice)}
+                itineraryPdfUrl={itineraryPdfUrl}
               />
             </div>
 
@@ -786,7 +789,12 @@ const isWinterTrek = bestSeason.some((s) => winterMonths.some((m) => s.toLowerCa
   <!-- Bottom padding for mobile sticky CTA -->
   <div class="h-20 lg:hidden"></div>
 
-  <MobileStickyForm client:idle trekSlug={trek.slug} trekName={trek.name} />
+  <MobileStickyForm
+    client:idle
+    trekSlug={trek.slug}
+    trekName={trek.name}
+    itineraryPdfUrl={itineraryPdfUrl}
+  />
 
   <script>
     // Availability month tab switching

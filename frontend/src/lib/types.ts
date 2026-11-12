@@ -35,6 +35,7 @@ export interface Trek {
   meta_description?: string;
   meta_keywords?: string[];
   map_embed?: string;
+  itinerary_pdf_url?: string | null;
   pickup_city?: string | null;
   pickup_time?: string | null;
   quiz_tags?: string[] | null;

@@ -1,5 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { leadsApi, type LeadData } from '@/lib/api';
+import {
+  deliverItineraryPdf,
+  releaseDownloadTab,
+  reserveDownloadTab,
+  resolveItineraryPdfUrl,
+  type ItineraryDelivery,
+} from '@/lib/itinerary-download';
+import ItineraryDownloadButton from '@/components/forms/ItineraryDownloadButton';
 
 interface TrekLeadFormProps {
   trekName: string;
@@ -7,6 +15,8 @@ interface TrekLeadFormProps {
   trekPrice: string;
   source?: string;
   variant?: 'trek' | 'expedition';
+  /** Existing itinerary PDF URL. Omitted or blank keeps the success message only. */
+  itineraryPdfUrl?: string | null;
 }
 
 interface FormData {
@@ -21,7 +31,14 @@ interface FormErrors {
   whatsapp?: string;
 }
 
-export default function TrekLeadForm({ trekName, trekSlug, trekPrice, source = 'trek_page', variant = 'trek' }: TrekLeadFormProps) {
+export default function TrekLeadForm({
+  trekName,
+  trekSlug,
+  trekPrice,
+  source = 'trek_page',
+  variant = 'trek',
+  itineraryPdfUrl,
+}: TrekLeadFormProps) {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -31,6 +48,7 @@ export default function TrekLeadForm({ trekName, trekSlug, trekPrice, source = '
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [itineraryDelivery, setItineraryDelivery] = useState<ItineraryDelivery | null>(null);
 
   // Calculate form completion progress (3 fields for this form)
   const filledFields = Object.values(formData).filter(Boolean).length;
@@ -66,6 +84,11 @@ export default function TrekLeadForm({ trekName, trekSlug, trekPrice, source = '
     
     if (!validateForm()) return;
 
+    // Reserve the fallback tab before the lead request. Popup blockers reject
+    // window.open once this handler has awaited the API.
+    const pdfUrl = resolveItineraryPdfUrl(itineraryPdfUrl);
+    const reserved = pdfUrl ? reserveDownloadTab() : null;
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -81,8 +104,24 @@ export default function TrekLeadForm({ trekName, trekSlug, trekPrice, source = '
       };
       
       await leadsApi.create(leadData);
+
+      try {
+        const delivery = await deliverItineraryPdf({
+          url: pdfUrl,
+          name: trekName,
+          kind: variant,
+          trekSlug,
+          source,
+          reserved,
+        });
+        setItineraryDelivery(delivery.method === 'skipped' ? null : delivery);
+      } catch (downloadError) {
+        releaseDownloadTab(reserved);
+        console.error('Itinerary download failed:', downloadError);
+      }
       setIsSuccess(true);
     } catch (error) {
+      releaseDownloadTab(reserved);
       console.error('Error submitting lead:', error);
       setSubmitError(error instanceof Error ? error.message : 'Failed to submit. Please try again.');
     } finally {
@@ -125,6 +164,13 @@ export default function TrekLeadForm({ trekName, trekSlug, trekPrice, source = '
             </svg>
             <span>{isExpedition ? 'We\'ll contact you soon' : 'Check your WhatsApp'}</span>
           </div>
+          {itineraryDelivery && (
+            <ItineraryDownloadButton
+              delivery={itineraryDelivery}
+              trekSlug={trekSlug}
+              source={source}
+            />
+          )}
         </div>
       </div>
     );
