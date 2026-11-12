@@ -3,7 +3,8 @@ import ExpeditionLayout from '@/layouts/ExpeditionLayout.astro';
 import { expeditionsApi, getSiteSettings } from '@/lib/api';
 import type { Expedition } from '@/lib/types';
 import TrekLeadForm from '@/components/forms/TrekLeadForm';
-import { API_BASE_URL, WHATSAPP } from '@/lib/constants';
+import { WHATSAPP } from '@/lib/constants';
+import { resolveItineraryPdfUrl } from '@/lib/itinerary-download';
 import { renderContent } from '@/lib/markdown';
 import { notFoundResponse } from '@/lib/seo/not-found';
 import { expeditionStructuredData } from '@/lib/seo/trek-structured-data';
@@ -46,12 +47,7 @@ const difficultyColors = {
 
 const whatsappBaseUrl = `https://wa.me/${WHATSAPP.number}`;
 
-const rawItineraryPdf = (expedition.itineraryPdfUrl || '').trim();
-const itineraryPdfUrl = rawItineraryPdf
-  ? (/^https?:\/\//i.test(rawItineraryPdf)
-      ? rawItineraryPdf
-      : `${API_BASE_URL}${rawItineraryPdf.startsWith('/') ? '' : '/'}${rawItineraryPdf}`)
-  : '';
+const itineraryPdfUrl = resolveItineraryPdfUrl(expedition.itineraryPdfUrl);
 
 const { siteConfig } = await getSiteSettings();
 const canonicalOrigin = Astro.site?.origin ?? Astro.url.origin;
@@ -518,6 +514,7 @@ const expeditionJsonLd = expeditionStructuredData(expedition, {
                 trekPrice={formatPrice(expedition.price)}
                 source="expedition_page"
                 variant="expedition"
+                itineraryPdfUrl={itineraryPdfUrl}
               />
             </div>
           </div>
