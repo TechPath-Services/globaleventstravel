@@ -5,12 +5,13 @@ interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  structuredData?: Record<string, unknown> | unknown[] | null;
 }
 
-const { title, description, ogImage } = Astro.props;
+const { title, description, ogImage, structuredData = null } = Astro.props;
 ---
 
-<MainLayout title={title} description={description} ogImage={ogImage} headerVariant="expedition">
+<MainLayout title={title} description={description} ogImage={ogImage} headerVariant="expedition" structuredData={structuredData}>
   <div data-theme="expedition" class="expedition-theme min-h-screen">
     <slot />
   </div>
