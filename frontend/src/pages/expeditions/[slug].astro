@@ -1,11 +1,12 @@
 ---
 import ExpeditionLayout from '@/layouts/ExpeditionLayout.astro';
-import { expeditionsApi } from '@/lib/api';
+import { expeditionsApi, getSiteSettings } from '@/lib/api';
 import type { Expedition } from '@/lib/types';
 import TrekLeadForm from '@/components/forms/TrekLeadForm';
 import { API_BASE_URL, WHATSAPP } from '@/lib/constants';
 import { renderContent } from '@/lib/markdown';
 import { notFoundResponse } from '@/lib/seo/not-found';
+import { expeditionStructuredData } from '@/lib/seo/trek-structured-data';
 
 export const prerender = false;
 
@@ -51,9 +52,17 @@ const itineraryPdfUrl = rawItineraryPdf
       ? rawItineraryPdf
       : `${API_BASE_URL}${rawItineraryPdf.startsWith('/') ? '' : '/'}${rawItineraryPdf}`)
   : '';
+
+const { siteConfig } = await getSiteSettings();
+const canonicalOrigin = Astro.site?.origin ?? Astro.url.origin;
+const expeditionJsonLd = expeditionStructuredData(expedition, {
+  origin: canonicalOrigin,
+  providerName: siteConfig.name,
+  price: expedition.price,
+});
 ---
 
-<ExpeditionLayout title={title} description={description} ogImage={expedition.image}>
+<ExpeditionLayout title={title} description={description} ogImage={expedition.image} structuredData={expeditionJsonLd}>
   <!-- Hero Section -->
   <section class="relative h-[65vh] min-h-[500px]">
     <img
