@@ -16,7 +16,13 @@ import {
   resolveRedirect,
 } from './redirects';
 import { renderRobotsTxt } from './robots';
-import { siteGraphJsonLd, trekDocumentTitle, trekMetaDescription, trekStructuredData } from './trek-structured-data';
+import {
+  expeditionStructuredData,
+  siteGraphJsonLd,
+  trekDocumentTitle,
+  trekMetaDescription,
+  trekStructuredData,
+} from './trek-structured-data';
 
 const THIN_KEDARKANTHA_DEAL_SLUGS = [
   'unbelievable-kedarkantha-trek-deals-you-cant-resist',
@@ -191,36 +197,66 @@ describe('trek structured data', () => {
     faqs: [
       { question: 'When does it snow in Kedarkantha?', answer: 'From late November through March.' },
     ],
-    itinerary: [{ day: 1, title: 'Dehradun to Sankri' }],
-    rating: 4.9,
-    review_count: 256,
+    itinerary: [
+      { day: 1, title: 'Dehradun to Sankri' },
+      { day: 2, title: 'Sankri to Juda Ka Talab' },
+    ],
+    rating: 0,
+    review_count: 0,
   };
 
-  it('builds TouristTrip, Product offer in INR, breadcrumbs, and FAQ without invented ratings', () => {
-    const data = trekStructuredData(kedarkantha, {
-      origin: 'https://globaleventstravels.com',
-      providerName: 'Global Events Travels',
-      price: 5499,
-    });
-    const graph = data['@graph'] as Record<string, unknown>[];
-    const trip = graph.find((node) => {
+  const provider = {
+    origin: 'https://globaleventstravels.com',
+    providerName: 'Global Events Travels',
+    price: 5499,
+  };
+
+  function typesIn(data: { '@graph': unknown[] }): string[] {
+    return (data['@graph'] as { '@type'?: string | string[] }[]).flatMap((node) => {
       const type = node['@type'];
-      return Array.isArray(type) && type.includes('TouristTrip') && type.includes('Product');
+      return Array.isArray(type) ? type : type ? [type] : [];
     });
+  }
+
+  it('builds TouristTrip, an INR offer, breadcrumbs, and FAQ without a Product type', () => {
+    const data = trekStructuredData(kedarkantha, { ...provider, validFrom: '2026-11-14' });
+    expect(JSON.parse(JSON.stringify(data))).toEqual(data);
+    const graph = data['@graph'] as Record<string, unknown>[];
+    const trip = graph.find((node) => node['@type'] === 'TouristTrip');
     expect(data['@context']).toBe('https://schema.org');
+    expect(typesIn(data)).not.toContain('Product');
     expect(trip).toMatchObject({
+      '@type': 'TouristTrip',
       name: 'Kedarkantha Trek',
       url: 'https://globaleventstravels.com/treks/kedarkantha',
+      image: kedarkantha.featured_image,
+      touristType: 'Himalayan trekker',
+      provider: {
+        '@type': 'Organization',
+        name: 'Global Events Travels',
+        url: 'https://globaleventstravels.com',
+      },
+      itinerary: {
+        '@type': 'ItemList',
+        numberOfItems: 2,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Dehradun to Sankri' },
+          { '@type': 'ListItem', position: 2, name: 'Sankri to Juda Ka Talab' },
+        ],
+      },
       offers: {
         '@type': 'Offer',
         priceCurrency: 'INR',
         price: 5499,
         availability: 'https://schema.org/InStock',
+        url: 'https://globaleventstravels.com/treks/kedarkantha',
+        validFrom: '2026-11-14',
       },
     });
     expect(trip).not.toHaveProperty('aggregateRating');
-    expect(JSON.stringify(data)).not.toContain('4.9');
-    expect(JSON.stringify(data)).not.toContain('256');
+    expect(trip).not.toHaveProperty('review');
+    expect(JSON.stringify(data)).not.toContain('Product');
+    expect(JSON.stringify(data)).not.toContain('aggregateRating');
 
     const crumbs = graph.find((node) => node['@type'] === 'BreadcrumbList') as {
       itemListElement: { name: string; item: string }[];
@@ -237,24 +273,139 @@ describe('trek structured data', () => {
     expect(faq.mainEntity[0].name).toBe('When does it snow in Kedarkantha?');
   });
 
-  it('omits FAQPage when the page has no FAQs and adds aggregateRating only for real reviews', () => {
-    const withoutFaq = trekStructuredData({ ...kedarkantha, faqs: [] }, {
-      origin: 'https://globaleventstravels.com',
-      providerName: 'Global Events Travels',
-      price: 5499,
-      soldOut: true,
-    });
+  it('omits cleared, zero, and incomplete ratings and keeps FAQPage off empty pages', () => {
+    const withoutFaq = trekStructuredData(
+      { ...kedarkantha, faqs: [], rating: 4.9, review_count: 0 },
+      { ...provider, soldOut: true, validFrom: 'not-a-date' },
+    );
     expect(withoutFaq['@graph'].some((node) => (node as { '@type': string })['@type'] === 'FAQPage')).toBe(false);
-    const soldOut = (withoutFaq['@graph'][0] as { offers: { availability: string } }).offers.availability;
-    expect(soldOut).toBe('https://schema.org/SoldOut');
+    const soldOut = withoutFaq['@graph'][0] as { offers: { availability: string; validFrom?: string } };
+    expect(soldOut.offers.availability).toBe('https://schema.org/SoldOut');
+    expect(soldOut.offers.validFrom).toBeUndefined();
+    expect(withoutFaq['@graph'][0]).not.toHaveProperty('aggregateRating');
+
+    const zeroCount = trekStructuredData(
+      { ...kedarkantha, rating: 0, review_count: 256 },
+      provider,
+    );
+    expect(zeroCount['@graph'][0]).not.toHaveProperty('aggregateRating');
+    expect(JSON.stringify(zeroCount)).not.toContain('256');
+
+    const unnamed = trekStructuredData(
+      { ...kedarkantha, rating: 0, review_count: 0, reviews: [{ rating: 5 }, { rating: 0 }, { rating: 4 }] },
+      provider,
+    );
+    expect(unnamed['@graph'][0]).toMatchObject({
+      aggregateRating: { '@type': 'AggregateRating', ratingValue: '4.5', reviewCount: 2 },
+    });
+    expect(unnamed['@graph'][0]).not.toHaveProperty('review');
+    expect(typesIn(unnamed)).not.toContain('Product');
+  });
+
+  it('adds aggregateRating and review only when stored reviews have a count and an average', () => {
+    const stored = trekStructuredData(
+      { ...kedarkantha, faqs: [], rating: 4.5, review_count: 12 },
+      provider,
+    );
+    expect(stored['@graph'][0]).toMatchObject({
+      aggregateRating: { '@type': 'AggregateRating', ratingValue: '4.5', reviewCount: 12, bestRating: 5 },
+    });
+    expect(stored['@graph'][0]).not.toHaveProperty('review');
+    expect(typesIn(stored)).toEqual(['TouristTrip', 'BreadcrumbList']);
 
     const withReviews = trekStructuredData(
-      { ...kedarkantha, faqs: [], reviews: [{ rating: 5 }, { rating: 4 }] },
-      { origin: 'https://globaleventstravels.com', providerName: 'Global Events Travels', price: 5499 },
+      {
+        ...kedarkantha,
+        faqs: [],
+        rating: 1,
+        review_count: 99,
+        reviews: [
+          {
+            rating: 5,
+            user_name: 'Asha',
+            title: 'Clear trail',
+            comment: 'Well led.',
+            created_at: '2026-01-04T10:00:00Z',
+          },
+          { rating: 4, user_name: 'Rohit', comment: 'Cold and worth it.' },
+          { rating: 0, user_name: 'Placeholder' },
+        ],
+      },
+      provider,
     );
     expect(withReviews['@graph'][0]).toMatchObject({
       aggregateRating: { '@type': 'AggregateRating', ratingValue: '4.5', reviewCount: 2 },
+      review: [
+        {
+          '@type': 'Review',
+          name: 'Clear trail',
+          author: { '@type': 'Person', name: 'Asha' },
+          reviewBody: 'Well led.',
+          datePublished: '2026-01-04',
+          reviewRating: { '@type': 'Rating', ratingValue: 5, bestRating: 5, worstRating: 1 },
+        },
+        {
+          '@type': 'Review',
+          author: { '@type': 'Person', name: 'Rohit' },
+          reviewBody: 'Cold and worth it.',
+          reviewRating: { '@type': 'Rating', ratingValue: 4 },
+        },
+      ],
     });
+    expect(JSON.stringify(withReviews)).not.toContain('Placeholder');
+    expect(JSON.stringify(withReviews)).not.toContain('"reviewCount":99');
+  });
+
+  it('describes an expedition as a TouristTrip and rates it only when both figures are real', () => {
+    const cleared = expeditionStructuredData(
+      {
+        name: 'Friendship Peak Expedition',
+        slug: 'friendship-peak-expedition',
+        shortDescription: 'A technical alpine ascent above Manali.',
+        image: 'https://images.example/peak.jpg',
+        location: 'Manali, Himachal Pradesh',
+        itinerary: [{ day: 1, title: 'Arrival in Manali' }],
+        rating: 0,
+        reviewCount: 0,
+      },
+      { ...provider, price: 32000 },
+    );
+    const trip = cleared['@graph'][0] as Record<string, unknown>;
+    expect(trip).toMatchObject({
+      '@type': 'TouristTrip',
+      name: 'Friendship Peak Expedition',
+      description: 'A technical alpine ascent above Manali.',
+      touristType: 'Mountaineer',
+      url: 'https://globaleventstravels.com/expeditions/friendship-peak-expedition',
+      offers: {
+        '@type': 'Offer',
+        price: 32000,
+        priceCurrency: 'INR',
+        availability: 'https://schema.org/InStock',
+      },
+    });
+    expect(trip).not.toHaveProperty('aggregateRating');
+    expect(trip).not.toHaveProperty('validFrom');
+    expect((trip.offers as { validFrom?: string }).validFrom).toBeUndefined();
+    expect(typesIn(cleared)).not.toContain('Product');
+    expect(typesIn(cleared)).toContain('BreadcrumbList');
+    expect(JSON.stringify(cleared)).not.toContain('FAQPage');
+    expect(JSON.stringify(cleared)).not.toContain('Trek');
+
+    const rated = expeditionStructuredData(
+      {
+        name: 'Friendship Peak Expedition',
+        slug: 'friendship-peak-expedition',
+        shortDescription: 'A technical alpine ascent above Manali.',
+        rating: 4.9,
+        reviewCount: 67,
+      },
+      { ...provider, price: 32000 },
+    );
+    expect(rated['@graph'][0]).toMatchObject({
+      aggregateRating: { '@type': 'AggregateRating', ratingValue: '4.9', reviewCount: 67 },
+    });
+    expect(rated['@graph'][0]).not.toHaveProperty('review');
   });
 
   it('uses the custom SEO title when set, otherwise name, Trek, duration, and price', () => {

@@ -143,6 +143,14 @@ const availableBatchPrices = batches
 const startingPrice = availableBatchPrices.length > 0
   ? Math.min(...availableBatchPrices)
   : trek.price;
+const earliestStart = (list: TrekBatch[]) =>
+  list.reduce<string | undefined>((soonest, batch) => {
+    if (!batch.start_date) return soonest;
+    return !soonest || batch.start_date < soonest ? batch.start_date : soonest;
+  }, undefined);
+const openBatches = batches.filter((batch) => !batch.is_sold_out);
+const pricedOpen = openBatches.filter((batch) => (batch.price_override ?? trek.price) === startingPrice);
+const offerValidFrom = earliestStart(pricedOpen) ?? earliestStart(openBatches) ?? earliestStart(batches);
 
 const [marketingSettings, publishedCities] = await Promise.all([loadSettings(), loadCities()]);
 const studentOffer = marketingSettings?.student_discount;
@@ -187,6 +195,7 @@ const trekJsonLd = trekStructuredData(trek, {
   providerName: siteConfig.name,
   price: startingPrice,
   soldOut: batches.length > 0 && openBatchCount === 0,
+  validFrom: offerValidFrom,
 });
 const lcpImage = heroImageAttrs(featuredImage, { width: 1920, height: 600 });
 
