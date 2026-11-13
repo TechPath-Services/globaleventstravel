@@ -20,7 +20,7 @@ const isActive = (href: string) =>
 <header
   data-overlay-header={isOverlay ? '' : undefined}
   class:list={[
-    'z-50',
+    'z-50 min-w-0',
     isOverlay
       ? 'site-header site-header--overlay'
       : [
@@ -32,14 +32,14 @@ const isActive = (href: string) =>
   ]}
 >
   <nav class="container-custom">
-    <div class="flex items-center justify-between h-16 md:h-20">
+    <div class="flex items-center justify-between h-16 md:h-20 min-w-0 gap-3">
       <!-- Logo -->
-      <a href="/" class="flex items-center gap-2 group">
+      <a href="/" class="flex items-center gap-2 group min-w-0">
         <!-- Brand logo image (optimized Image component) -->
         <Image
           src="/logo.webp"
           alt={siteConfig.name}
-          class="h-12 w-auto object-contain drop-shadow-sm"
+          class="h-12 w-auto max-w-full min-w-0 object-contain drop-shadow-sm"
           width={300}
           height={80}
           loading={isOverlay ? 'eager' : 'lazy'}

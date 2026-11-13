@@ -33,10 +33,10 @@ const planLinks = [
 ];
 ---
 
-<footer class="bg-secondary-600 text-white">
+<footer class="bg-secondary-600 text-white min-w-0">
   <!-- Main Footer -->
   <div class="container-custom py-16">
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 [&>*]:min-w-0">
       <!-- Brand Column -->
       <div class="lg:col-span-1">
         <a href="/" class="flex items-center gap-2 mb-4">
@@ -125,7 +125,7 @@ const planLinks = [
             <svg class="w-5 h-5 text-primary-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <a href={`mailto:${siteConfig.email}`} class="text-white/70 hover:text-primary-300 transition-colors">{siteConfig.email}</a>
+            <a href={`mailto:${siteConfig.email}`} class="min-w-0 break-words text-white/70 hover:text-primary-300 transition-colors">{siteConfig.email}</a>
           </li>
         </ul>
       </div>

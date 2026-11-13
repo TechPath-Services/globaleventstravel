@@ -142,7 +142,7 @@ const jsonLd = siteGraphJsonLd({
   </head>
   <body class="min-h-screen flex flex-col bg-white overflow-x-hidden">
     <Header siteConfig={siteConfig} headerVariant={headerVariant} />
-    <main class="flex-grow">
+    <main class="flex-grow min-w-0">
       <slot />
     </main>
     <Footer siteConfig={siteConfig} socialLinks={socialLinks} />
