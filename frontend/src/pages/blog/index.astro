@@ -118,7 +118,7 @@ const buildUrl = (params: Record<string, string>) => {
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
           
           <!-- Main Content Column -->
-          <div class="lg:col-span-3">
+          <div class="lg:col-span-3 min-w-0">
             
             <!-- Active search indicator -->
             {searchQuery && (
@@ -207,7 +207,7 @@ const buildUrl = (params: Record<string, string>) => {
           </div>
 
           <!-- Sidebar -->
-          <div class="lg:col-span-1">
+          <div class="lg:col-span-1 min-w-0">
             <div class="sticky top-24 space-y-8">
               
               <!-- Categories Widget -->
